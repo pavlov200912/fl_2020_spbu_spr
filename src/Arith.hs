@@ -23,7 +23,7 @@ data AST = BinOp Operator AST AST
 -- Между числами и знаками операций по одному пробелу
 -- BinOp Plus (Num 13) (Num 42) -> "13 42 +"
 toPostfix :: AST -> String
-toPostfix (Num x) = show x
+toPostfix (Num reversedNumber) = show reversedNumber
 toPostfix (BinOp op l r) = (toPostfix l) ++ " " ++ (toPostfix r) ++ " " ++ (show op)
 
 -- Парсит выражение в постфиксной записи 
@@ -42,8 +42,8 @@ toOperator '-' = Minus
 
 parsePostfix :: String -> Maybe (AST, String)
 parsePostfix (c:other) | isDigit c = do
-                          let x = reverse $ c:(takeWhile isDigit other)
-                          (Num y, "") <- parseNum x
+                          let reversedNumber = reverse $ c:(takeWhile isDigit other)
+                          (Num y, "") <- parseNum reversedNumber
                           return $ (Num y, dropWhile isDigit other)
                        | otherwise = do
                           (' ':other') <- return $ other
@@ -58,21 +58,31 @@ fromPostfix input = do
 
 -- Парсит левую скобку
 parseLbr :: String -> Maybe ((), String)
-parseLbr = error "parseLbr not implemented"
+parseLbr input = do
+                 ('('):other <- return $ input
+                 return ((), other) 
 
 -- Парсит правую скобку
 parseRbr :: String -> Maybe ((), String)
-parseRbr = error "parseRbr not implemented"
+parseRbr input = do
+                 (')'):other <- return $ input
+                 return ((), other)
 
 parseExpr :: String -> Maybe (AST, String)
 parseExpr input = parseSum input
 
 parseNum :: String -> Maybe (AST, String) 
-parseNum input = 
-    let (num, rest) = span isDigit input in 
-    case num of 
-      [] -> Nothing  
-      xs -> Just (Num $ Sum.parseNum xs, rest)
+parseNum input | isDigit $ head input = 
+                                let (num, rest) = span isDigit input in 
+                                case num of 
+                                  [] -> Nothing  
+                                  xs -> Just (Num $ Sum.parseNum xs, rest)
+                   | otherwise         = 
+                                do
+                                ((), other) <- parseLbr input
+                                (tree, other') <- parseExpr other
+                                ((), output) <- parseRbr other'
+                                return (tree, output)
   
   
 parseOp :: String -> Maybe (Operator, String)
@@ -107,11 +117,11 @@ evaluate input = do
     return $ compute ast 
 
 compute :: AST -> Int 
-compute (Num x) = x 
-compute (BinOp Plus x y) = compute x + compute y 
-compute (BinOp Mult x y) = compute x * compute y 
-compute (BinOp Minus x y) = compute x - compute y 
-compute (BinOp Div x y) = compute x `div` compute y 
+compute (Num reversedNumber) = reversedNumber 
+compute (BinOp Plus reversedNumber y) = compute reversedNumber + compute y 
+compute (BinOp Mult reversedNumber y) = compute reversedNumber * compute y 
+compute (BinOp Minus reversedNumber y) = compute reversedNumber - compute y 
+compute (BinOp Div reversedNumber y) = compute reversedNumber `div` compute y 
 
 instance Show Operator where 
   show Plus = "+"
