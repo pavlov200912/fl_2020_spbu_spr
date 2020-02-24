@@ -23,7 +23,8 @@ data AST = BinOp Operator AST AST
 -- Между числами и знаками операций по одному пробелу
 -- BinOp Plus (Num 13) (Num 42) -> "13 42 +"
 toPostfix :: AST -> String
-toPostfix ast = error "toPostfix not implemented"
+toPostfix (Num x) = show x
+toPostfix (BinOp op l r) = (toPostfix l) ++ " " ++ (toPostfix r) ++ " " ++ (show op)
 
 -- Парсит выражение в постфиксной записи 
 -- Выражение принимается только целиком (не максимально длинный префикс)
@@ -31,8 +32,33 @@ toPostfix ast = error "toPostfix not implemented"
 -- "13 42 +" -> Just (BinOp Plus (Num 13) (Num 42))
 -- "1 2 3 +" -> Nothing
 -- "1 2 + *" -> Nothing 
-fromPostfix :: String -> Maybe AST 
-fromPostfix input = error "fromPostfix not implemented"
+
+
+toOperator :: Char -> Operator
+toOperator '+' = Plus
+toOperator '*' = Mult
+toOperator '/' = Div
+toOperator '-' = Minus
+
+parsePostfix :: String -> Maybe (AST, String)
+parsePostfix (c:other) | isDigit c = do
+                          let x = reverse $ c:(takeWhile isDigit other)
+                          (Num y, "") <- parseNum x
+                          return $ (Num y, dropWhile isDigit other)
+                       | otherwise = do
+                          (' ':other') <- return $ other
+                          (right, (' '):other'') <- parsePostfix other'
+                          (left, output) <- parsePostfix other''
+                          return $ (BinOp (toOperator c) left right, output) 
+
+fromPostfix :: String -> Maybe AST
+fromPostfix input | Just (Num x, "") <- parseNum input = Just $ Num x
+fromPostfix input = do
+                    let rev = reverse input
+                    (op:(' '):other) <- return $ rev
+                    (right, (' '):other')  <- parsePostfix other
+                    left <- fromPostfix $ reverse other'
+                    return $ BinOp (toOperator op) left right
 
 -- Парсит левую скобку
 parseLbr :: String -> Maybe ((), String)
