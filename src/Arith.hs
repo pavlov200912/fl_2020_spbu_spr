@@ -117,11 +117,11 @@ evaluate input = do
     return $ compute ast 
 
 compute :: AST -> Int 
-compute (Num reversedNumber) = reversedNumber 
-compute (BinOp Plus reversedNumber y) = compute reversedNumber + compute y 
-compute (BinOp Mult reversedNumber y) = compute reversedNumber * compute y 
-compute (BinOp Minus reversedNumber y) = compute reversedNumber - compute y 
-compute (BinOp Div reversedNumber y) = compute reversedNumber `div` compute y 
+compute (Num x) = x 
+compute (BinOp Plus x y) = compute x + compute y 
+compute (BinOp Mult x y) = compute x * compute y 
+compute (BinOp Minus x y) = compute x - compute y 
+compute (BinOp Div x y) = compute x `div` compute y 
 
 instance Show Operator where 
   show Plus = "+"
