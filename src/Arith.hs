@@ -52,13 +52,9 @@ parsePostfix (c:other) | isDigit c = do
                           return $ (BinOp (toOperator c) left right, output) 
 
 fromPostfix :: String -> Maybe AST
-fromPostfix input | Just (Num x, "") <- parseNum input = Just $ Num x
 fromPostfix input = do
-                    let rev = reverse input
-                    (op:(' '):other) <- return $ rev
-                    (right, (' '):other')  <- parsePostfix other
-                    left <- fromPostfix $ reverse other'
-                    return $ BinOp (toOperator op) left right
+                    (tree, "") <- parsePostfix $ reverse input
+                    return tree
 
 -- Парсит левую скобку
 parseLbr :: String -> Maybe ((), String)
