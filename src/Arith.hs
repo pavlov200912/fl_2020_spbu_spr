@@ -40,20 +40,32 @@ toOperator '*' = Mult
 toOperator '/' = Div
 toOperator '-' = Minus
 
-parsePostfix :: String -> Maybe (AST, String)
-parsePostfix (c:other) | isDigit c = do
-                          let reversedNumber = reverse $ c:(takeWhile isDigit other)
-                          (Num y, "") <- parseNum reversedNumber
-                          return $ (Num y, dropWhile isDigit other)
-                       | otherwise = do
-                          (' ':other') <- return $ other
-                          (right, (' '):other'') <- parsePostfix other'
-                          (left, output) <- parsePostfix other''
-                          return $ (BinOp (toOperator c) left right, output) 
+parsePostfix :: [String] -> Maybe (AST, [String])
+parsePostfix (elem:other) | Just (num, "") <- parseNum elem = return $ (num, other)
+                          | otherwise                         = do
+                                                                (op:[]) <- return elem 
+                                                                (right, leftTail) <- parsePostfix other 
+                                                                (left, output) <- parsePostfix leftTail 
+                                                                return $ (BinOp (toOperator op) left right, output)
+parsePostfix [] = Nothing
+
+parsePostfixStraight :: [String] -> [AST] -> Maybe AST
+parsePostfixStraight (elem:other) stack | Just (num, "") <- parseNum elem = parsePostfixStraight other (num:stack)
+                                        | otherwise                       = do
+                                                                            (left:right:otherStack) <- return stack
+                                                                            (op:[]) <- return elem
+                                                                            let tree = BinOp (toOperator op) right left
+                                                                            parsePostfixStraight other (tree:otherStack)   
+parsePostfixStraight [] (tree:[]) = Just tree
+parsePostfixStraight [] _         = Nothing 
+
+fromPostfixStraight :: String -> Maybe AST
+fromPostfixStraight input = parsePostfixStraight (words input) []
+                            
 
 fromPostfix :: String -> Maybe AST
 fromPostfix input = do
-                    (tree, "") <- parsePostfix $ reverse input
+                    (tree, []) <- parsePostfix $ reverse . words $ input
                     return tree
 
 -- Парсит левую скобку
