@@ -127,3 +127,19 @@ compute (BinOp Mult x y)  = compute x * compute y
 compute (BinOp Minus x y) = compute x - compute y
 compute (BinOp Div x y)   = compute x `div` compute y
 compute (BinOp Pow x y)   = compute x ^ compute y
+compute (BinOp Equal x y)  = boolInt $ compute x == compute y
+compute (BinOp Nequal x y) = boolInt $ compute x /= compute y
+compute (BinOp Ge x y)     = boolInt $ compute x >= compute y
+compute (BinOp Le x y)     = boolInt $ compute x <= compute y
+compute (BinOp Gt x y)     = boolInt $ compute x < compute y
+compute (BinOp Lt x y)     = boolInt $ compute x > compute y
+compute (BinOp And x y)    = case compute x of
+                                0 -> 0
+                                _ -> compute y
+compute (BinOp Or x y)     = case compute x of
+                                0 -> compute y
+                                x -> x
+
+boolInt :: Bool -> Int
+boolInt True = 1
+boolInt False = 0
