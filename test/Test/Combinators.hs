@@ -9,7 +9,6 @@ predErrMsg :: String
 predErrMsg = "Predicate failed"
 
 digit :: Parser String String Char
---АААААА как же долго я искал, почему у меня не заходит тесты длины больше 5 элементов
 digit = satisfy (`elem` "0123456789")
 
 unit_satisfy :: Assertion
