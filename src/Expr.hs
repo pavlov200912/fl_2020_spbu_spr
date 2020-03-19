@@ -2,7 +2,7 @@ module Expr where
 
 import           AST         (AST (..), Operator (..))
 import           Combinators (Parser (..), Result (..), elem', fail',
-                             satisfy, success, sepBy1, symbol)
+                             satisfy, success, sepBy1, symbol, stringCompare, satisfySome)
 import           Data.Char   (digitToInt, isDigit)
 import           Control.Applicative
 
@@ -44,40 +44,75 @@ uberExpr ((p, assoc):ps) elem f = let recursive  = uberExpr ps elem f in
 -- Парсер для выражений над +, -, *, /, ^ (возведение в степень)
 -- с естественными приоритетами и ассоциативностью над натуральными числами с 0.
 -- В строке могут быть скобки
-parseExpr :: Parser String String AST
-parseExpr = uberExpr [(plus <|> minus, LeftAssoc), (mult <|> div', LeftAssoc), (pow, RightAssoc)]
-                      (Num <$> parseNum <|> symbol '(' *> parseExpr <* symbol ')')
-                      BinOp
+parseExpr = uberExpr [
+                      (or', RightAssoc),
+                      (and', RightAssoc),
+                      (equal' <|> nequal' <|> ge' <|> le' <|> gt' <|> lt', NoAssoc),
+                      (plus' <|> minus', LeftAssoc),
+                      (mult' <|> div', LeftAssoc),
+                      (pow', RightAssoc)
+                     ]
+                     (Num <$> parseNum <|> Ident <$> parseIdent <|> symbol '(' *> parseExpr <* symbol ')')
+                     BinOp
 
 
-pow   = symbol '^' >>= toOperator
-plus  = symbol '+' >>= toOperator
-minus = symbol '-' >>= toOperator
-mult  = symbol '*' >>= toOperator
-div'  = symbol '/' >>= toOperator
+plus'   = stringCompare "+" >>= toOperator
+minus'  = stringCompare "-" >>= toOperator
+mult'   = stringCompare "*" >>= toOperator
+pow'    = stringCompare "^" >>= toOperator
+equal'  = stringCompare "==" >>= toOperator
+nequal' = stringCompare "/=" >>= toOperator
+ge'     = stringCompare ">=" >>= toOperator
+le'     = stringCompare "<=" >>= toOperator
+and'    = stringCompare "&&" >>= toOperator
+or'     = stringCompare "||" >>= toOperator
+gt'     = stringCompare ">" >>= toOperator
+lt'     = stringCompare "<" >>= toOperator
+div'    = stringCompare "/" >>= toOperator
+
 
 -- Парсер для целых чисел
 parseNum :: Parser String String Int
-parseNum = foldl (\acc d -> 10 * acc + digitToInt d) 0 <$> go
+parseNum = foldl func 0 <$> go
   where
     go :: Parser String String String
-    go = some (satisfy isDigit)
+    go = some (satisfy isDigit) <|> ((flip (++)) <$> many (symbol '-') <*> some (satisfy isDigit)) 
+    func  acc ('-') = -acc 
+    func  acc   d   = (digitToInt d) + 10 * acc
+       
+
 
 parseIdent :: Parser String String String
-parseIdent = error "parseIdent undefined"
+parseIdent = (:) <$> (letterParser <|> underscoreParser) <*> (many (letterParser <|> digitParser <|> underscoreParser))
+  where digitParser = satisfy isDigit
+        letterParser = satisfy (\x -> elem x (['a'..'z'] ++ ['A'..'Z']))
+        underscoreParser = satisfy (== '_')
 
 -- Парсер для операторов
 parseOp :: Parser String String Operator
-parseOp = elem' >>= toOperator
+parseOp = ((:[]) <$> (satisfy (const True)) >>= toOperator) <|>
+            (((:) <$> satisfy (const True) <*>((:[]) <$> (satisfy (const True))) >>= toOperator))
+
+
 
 -- Преобразование символов операторов в операторы
-toOperator :: Char -> Parser String String Operator
-toOperator '+' = success Plus
-toOperator '*' = success Mult
-toOperator '-' = success Minus
-toOperator '/' = success Div
-toOperator '^' = success Pow
+toOperator :: String -> Parser String String Operator
+toOperator "+" = success Plus
+toOperator "*" = success Mult
+toOperator "-" = success Minus
+toOperator "/" = success Div
+toOperator "^" = success Pow
+toOperator "==" = success Equal
+toOperator "/=" = success Nequal
+toOperator ">" = success Gt
+toOperator ">=" = success Ge
+toOperator "<=" = success Le
+toOperator "<" = success Lt
+toOperator "&&" = success And
+toOperator "||" = success Or
 toOperator _   = fail' "Failed toOperator"
+
+
 
 evaluate :: String -> Maybe Int
 evaluate input = do

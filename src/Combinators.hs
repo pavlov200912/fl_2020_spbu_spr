@@ -59,9 +59,15 @@ sepBy1 sep elem = do
 symbol :: Char -> Parser String String Char
 symbol c = satisfy (== c)
 
+stringCompare :: String -> Parser String String String
+stringCompare [] = success []
+stringCompare (x:xs) = (:) <$> satisfy (== x) <*> stringCompare xs  
+ 
+
 -- Успешно завершается, если последовательность содержит как минимум один элемент
 elem' :: (Show a) => Parser String [a] a
 elem' = satisfy (const True)
+
 
 -- Проверяет, что первый элемент входной последовательности удовлетворяет предикату
 satisfy :: Show a => (a -> Bool) -> Parser String [a] a
@@ -69,6 +75,9 @@ satisfy p = Parser $ \input ->
   case input of
     (x:xs) | p x -> Success xs x
     _       -> Failure $ "Predicate failed"
+
+satisfySome :: Show a => (a -> Bool) -> Parser String [a] [a]
+satisfySome p = some (satisfy p) 
 
 -- Успешно парсит пустую строку
 epsilon :: Parser e i ()
