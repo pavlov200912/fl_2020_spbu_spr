@@ -1,7 +1,7 @@
 module Expr where
 
 import           AST         (AST (..), Operator (..))
-import           Combinators (Parser (..), Result (..), elem', fail',
+import           Combinators (Parser (..), Result (..), elem', elemSome', fail',
                              satisfy, success, sepBy1, symbol, stringCompare, satisfySome)
 import           Data.Char   (digitToInt, isDigit)
 import           Control.Applicative
@@ -89,9 +89,15 @@ parseIdent = (:) <$> (letterParser <|> underscoreParser) <*> (many (letterParser
         underscoreParser = satisfy (== '_')
 
 -- Парсер для операторов
+
 parseOp :: Parser String String Operator
-parseOp = ((:[]) <$> (satisfy (const True)) >>= toOperator) <|>
-            (((:) <$> satisfy (const True) <*>((:[]) <$> (satisfy (const True))) >>= toOperator))
+parseOp = elemSome' operators >>= toOperator
+
+operators = ["+", "*", "-", "^", "/", ">=", "<=", ">", "<", "&&", "||", "==", "/="]
+
+
+--parseOp = ((:[]) <$> (satisfy (const True)) >>= toOperator) <|>
+--            (((:) <$> satisfy (const True) <*>((:[]) <$> (satisfy (const True))) >>= toOperator))
 
 
 

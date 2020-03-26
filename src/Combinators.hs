@@ -68,7 +68,9 @@ stringCompare (x:xs) = (:) <$> satisfy (== x) <*> stringCompare xs
 elem' :: (Show a) => Parser String [a] a
 elem' = satisfy (const True)
 
-
+elemSome' :: [String] -> Parser String String String
+elemSome' []     = return ""
+elemSome' (x:xs) = stringCompare x <|> elemSome' xs
 -- Проверяет, что первый элемент входной последовательности удовлетворяет предикату
 satisfy :: Show a => (a -> Bool) -> Parser String [a] a
 satisfy p = Parser $ \input ->
