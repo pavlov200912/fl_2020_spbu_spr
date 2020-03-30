@@ -57,8 +57,8 @@
    S' -> RS | AF | CG | AB | CD | \epsilon
    S  -> RS | AF | CG | AB | CD
    R  -> AF | CG | AB | CD
-   F  -> SB | B
-   G  -> RD | D
+   F  -> SB | b
+   G  -> RD | d
    A  -> a
    B  -> b
    C  -> c
