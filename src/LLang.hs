@@ -1,7 +1,12 @@
 module LLang where
 
 import AST (AST (..), Operator (..))
-import Combinators (Parser (..))
+import Combinators (Parser (..), Result (..), elem', elemSome', fail',
+                      satisfy, success, sepBy1, symbol, stringCompare, satisfySome)
+import Expr (OpType (..), Associativity (..), uberExpr, toOperator)
+import           Control.Applicative
+import           Data.Char   (digitToInt, isDigit)
+import Control.Monad
 
 type Expr = AST
 
@@ -16,20 +21,208 @@ data LAst
   | Seq { statements :: [LAst] }
   deriving (Show, Eq)
 
+
+-- Функции первичного синтаксического анализа
+replaceLineBreaker :: String -> String
+replaceLineBreaker [] = []
+replaceLineBreaker ('\n':xs) = (' ':(replaceLineBreaker xs))
+replaceLineBreaker (x:xs) = x:(replaceLineBreaker xs) 
+
+-- Долго искал функцию для replace, но не смог ее заимпортить из-за stack ((
+replacePlease :: String -> String
+replacePlease [] = []
+replacePlease ('p':'l':'e':'a':'s':'e':xs) = ' ':(replacePlease xs)
+replacePlease (x:xs) = x:(replacePlease xs) 
+
+replaceHelp :: String -> String
+replaceHelp [] = []
+replaceHelp ('h':'e':'l':'p':xs) = ' ':(replaceHelp xs)
+replaceHelp (x:xs) = x:(replaceHelp xs)
+
+replaceMe :: String -> String
+replaceMe [] = []
+replaceMe ('m':'e':xs) = ' ':(replaceMe xs)
+replaceMe (x:xs) = x:(replaceMe xs)
+
+squeezeSpaces :: String -> String
+squeezeSpaces [] = []
+squeezeSpaces (' ':' ':xs) = squeezeSpaces (' ':xs)
+squeezeSpaces (x:xs) = x:(squeezeSpaces xs)
+
+primaryAnalysis :: String -> String
+primaryAnalysis = squeezeSpaces . replaceLineBreaker . replacePlease . replaceHelp . replaceMe
+
+trimSpacesBegin :: String -> String 
+trimSpacesBegin [] = []
+trimSpacesBegin (' ':xs) = trimSpacesBegin xs
+trimSpacesBegin (x:xs) = x:(trimSpacesBegin xs)
+
+trimSpacesEnd :: String -> String 
+trimSpacesEnd = reverse . trimSpacesBegin . reverse
+
+-- Парсер для положительных целых чисел
+-- Ведет себя неожиданно, но так и задуманно
+parseNum :: Parser String String Int
+parseNum = foldl (\acc d -> if d == '.' then acc else 10 * acc + digitToInt d) 0 `fmap` go
+    where
+        go :: Parser String String String
+        go = (++) <$> some (satisfy isDigit) <*>
+         (((:) <$> satisfy (=='.') <*> (some (satisfy isDigit))) <|> return [])
+
+--Parse Ident 
+parseIdent :: Parser String String String
+parseIdent = do
+             str <- parseVar
+             guard (not $ elem str indentKeywords)
+             return str
+          where
+          parseVar = (:) <$> (letterParser) <*> (many (letterParser <|> digitParser <|> underscoreParser))
+            where digitParser = satisfy isDigit
+                  letterParser = satisfy (\x -> elem x (['a'..'z'] ++ ['A'..'Z']))
+                  underscoreParser = satisfy (== '~')
+
+--Parse Expressions 
+plus'   = stringCompare "+" >>= toOperator
+minus'  = stringCompare "-" >>= toOperator
+mult'   = stringCompare "*" >>= toOperator
+pow'    = stringCompare "^" >>= toOperator
+equal'  = stringCompare "==" >>= toOperator
+nequal' = stringCompare "/=" >>= toOperator
+ge'     = stringCompare ">=" >>= toOperator
+le'     = stringCompare "<=" >>= toOperator
+and'    = stringCompare "&&" >>= toOperator
+or'     = stringCompare "||" >>= toOperator
+gt'     = stringCompare ">" >>= toOperator
+lt'     = stringCompare "<" >>= toOperator
+div'    = stringCompare "/" >>= toOperator
+
+parseExpr :: Parser String String AST
+parseExpr = uberExpr [
+                      (or', Binary RightAssoc),
+                      (and', Binary RightAssoc),
+                      (equal' <|> nequal' <|> ge' <|> le' <|> gt' <|> lt', Binary NoAssoc),
+                      (plus' <|> minus', Binary LeftAssoc),
+                      (mult' <|> div', Binary LeftAssoc),
+                      (pow', Binary RightAssoc)
+                     ]
+                     (Num <$> parseNum <|> Ident <$> parseIdent <|> symbol '(' *> parseExpr <* symbol ')')
+                     BinOp
+                     UnaryOp
+
+
+parseSomeSpaces :: Parser String String String
+parseSomeSpaces = some (symbol ' ')
+
+parseManySpaces = many (symbol ' ')
+-- Parse Keywords
+
+-- keywords that shouldn't be parsed like Var
+indentKeywords = ["esle", "poka", "read", "print"]
+
+parseIf :: Parser String String LAst
+parseIf = do
+          parseManySpaces
+          stringCompare "esle"
+          parseSomeSpaces 
+          symbol '('
+          expr <- parseExpr
+          symbol ')'
+          parseSomeSpaces
+          stringCompare "then"
+          parseSomeSpaces 
+          seqTrue <- parseSeq
+          parseSomeSpaces
+          stringCompare "else"
+          parseSomeSpaces 
+          seqFalse <- parseSeq
+          symbol ';'
+          return $ If expr seqTrue seqFalse
+
+parseAssign :: Parser String String LAst
+parseAssign = do
+           parseManySpaces 
+           ident <- parseIdent
+           parseSomeSpaces
+           stringCompare ":="
+           parseSomeSpaces
+           expr <- parseExpr
+           symbol ';'
+           return $ Assign ident expr
+
+
+parseWhile :: Parser String String LAst
+parseWhile = do
+             parseManySpaces
+             stringCompare "poka"
+             parseSomeSpaces
+             symbol '('
+             expr <- parseExpr
+             symbol ')'
+             parseSomeSpaces
+             seq <- parseSeq
+             symbol ';'
+             return $ While expr seq
+
+parseRead :: Parser String String LAst
+parseRead = do
+            parseManySpaces
+            stringCompare "read"
+            symbol '('
+            var <- parseIdent
+            symbol ')'
+            symbol ';'
+            return $ Read var
+
+
+
+parseWrite :: Parser String String LAst
+parseWrite = do
+              parseManySpaces
+              stringCompare "print"
+              symbol '('
+              expr <- parseExpr
+              symbol ')'
+              symbol ';'
+              return $ Write expr
+
+
+
+parseSeq :: Parser String String LAst
+parseSeq = do
+           parseManySpaces
+           symbol '{'
+           list <- many (parseInstruction)
+           parseManySpaces
+           symbol '}'
+           return $ Seq list
+
+parseInstruction = parseAssign <|> parseIf <|> parseWhile <|> parseRead <|> parseWrite
+
+parsePrimary :: Parser String String String
+parsePrimary = Parser $ \input -> Success (primaryAnalysis input) ""
+
+parseLLang :: Parser String String LAst
+parseLLang = do 
+             parsePrimary
+             parseManySpaces
+             last <- parseSeq <|> parseInstruction
+             parseManySpaces
+             return last 
 stmt :: LAst
 stmt =
   Seq
-    [ Read "X"
-    , If (BinOp Gt (Ident "X") (Num 13))
-         (Write (Ident "X"))
-         (While (BinOp Lt (Ident "X") (Num 42))
-                (Seq [ Assign "X"
-                        (BinOp Mult (Ident "X") (Num 7))
-                     , Write (Ident "X")
+    [ Read "x"
+    , If (BinOp Gt (Ident "x") (Num 13))
+         (Seq [(Write (Ident "x"))])
+         (Seq [(While (BinOp Lt (Ident "x") (Num 42))
+                (Seq [ Assign "x"
+                        (BinOp Mult (Ident "x") (Num 7))
+                     , Write (Ident "x")
                      ]
                 )
-         )
+         )])
     ]
 
+-- i like parseLLang more
 parseL :: Parser String String LAst
-parseL = error "parseL undefined"
+parseL = parseLLang
