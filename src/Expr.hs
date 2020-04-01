@@ -5,7 +5,7 @@ import           Combinators (Parser (..), Result (..), elem', elemSome', fail',
                              satisfy, success, sepBy1, symbol, stringCompare, satisfySome)
 import           Data.Char   (digitToInt, isDigit)
 import           Control.Applicative
-
+import           Data.Function
 
 data Associativity
   = LeftAssoc  -- 1 @ 2 @ 3 @ 4 = (((1 @ 2) @ 3) @ 4)
@@ -21,44 +21,56 @@ uberExpr :: Monoid e
          -> (op -> ast -> ast -> ast) -- конструктор узла дерева для бинарной операции
          -> (op -> ast -> ast)        -- конструктор узла для унарной операции
          -> Parser e i ast
-uberExpr [] elem _ = elem 
-uberExpr ((p, assoc):ps) elem f = let recursive  = uberExpr ps elem f in
-                                  let leftSide   = (,) <$> recursive <*> (many ((,) <$> p <*> recursive)) in
-                                  let rightSide  = (,) <$> (many ((,) <$> recursive <*> p)) <*> recursive in
-                                  (
-                                  case assoc of
-                                    NoAssoc -> do
-                                              l <- recursive
-                                              op <- p
-                                              r <- recursive
-                                              return $ f op l r
-                                    LeftAssoc ->  do
-                                                  (term, xs) <- leftSide
-                                                  return $ foldl (\left (op, right) -> f op left right) term xs   
-                                    RightAssoc -> do 
-                                                  (term, xs) <- rightSide
-                                                  return $ foldr (\(right, op) left -> f op right left) xs term        
-                                  )
-                                  <|> 
-                                  recursive
-
-
-
+uberExpr [] eParser _ _ = eParser  
+uberExpr opList eParser binNode unNode = foldr helper eParser opList where
+  helper (opParser, Unary) exprParser = (
+                                        do 
+                                        op   <- opParser
+                                        term <- exprParser
+                                        return $ unNode op term
+                                        ) <|> exprParser 
+  helper (opParser, Binary NoAssoc) exprParser = do
+                                                 term1 <- exprParser
+                                                 (do
+                                                  op    <- opParser
+                                                  term2 <- exprParser
+                                                  return $ binNode op term1 term2
+                                                  ) <|> return term1
+  helper (opParser, Binary LeftAssoc) exprParser = do
+                                                   term1 <- exprParser
+                                                   foldl (&) term1 <$> many (
+                                                    do 
+                                                    op <- opParser
+                                                    term2 <- exprParser
+                                                    return $ (flip $ binNode op) term2
+                                                    )
+  helper (opParser, Binary RightAssoc) exprParser = 
+    let list = many (do 
+                    term <- exprParser
+                    op   <- opParser
+                    return $ binNode op term) in (do
+                                                  xs <- list
+                                                  term <- exprParser
+                                                  return $ foldr ($) term xs) <|> exprParser
+                                                    
 
 -- Парсер для выражений над +, -, *, /, ^ (возведение в степень)
 -- с естественными приоритетами и ассоциативностью над натуральными числами с 0.
 -- В строке могут быть скобки
+parseExpr :: Parser String String AST
 parseExpr = uberExpr [
-                      (or', RightAssoc),
-                      (and', RightAssoc),
-                      (equal' <|> nequal' <|> ge' <|> le' <|> gt' <|> lt', NoAssoc),
-                      (plus' <|> minus', LeftAssoc),
-                      (mult' <|> div', LeftAssoc),
-                      (pow', RightAssoc)
+                      (or', Binary RightAssoc),
+                      (and', Binary RightAssoc),
+                      (not', Unary),
+                      (equal' <|> nequal' <|> ge' <|> le' <|> gt' <|> lt', Binary NoAssoc),
+                      (plus' <|> minus', Binary LeftAssoc),
+                      (mult' <|> div', Binary LeftAssoc),
+                      (minus', Unary),
+                      (pow', Binary RightAssoc)
                      ]
                      (Num <$> parseNum <|> Ident <$> parseIdent <|> symbol '(' *> parseExpr <* symbol ')')
                      BinOp
-
+                     UnaryOp
 
 plus'   = stringCompare "+" >>= toOperator
 minus'  = stringCompare "-" >>= toOperator
@@ -73,18 +85,23 @@ or'     = stringCompare "||" >>= toOperator
 gt'     = stringCompare ">" >>= toOperator
 lt'     = stringCompare "<" >>= toOperator
 div'    = stringCompare "/" >>= toOperator
-
+not'    = stringCompare "!" >>= toOperator
 
 -- Парсер для целых чисел
-parseNum :: Parser String String Int
-parseNum = foldl func 0 <$> go
+parseNegNum :: Parser String String Int
+parseNegNum = foldl func 0 <$> go
   where
     go :: Parser String String String
     go = some (satisfy isDigit) <|> ((flip (++)) <$> many (symbol '-') <*> some (satisfy isDigit)) 
     func  acc ('-') = -acc 
     func  acc   d   = (digitToInt d) + 10 * acc
        
-
+-- Парсер для положительных целых чисел
+parseNum :: Parser String String Int
+parseNum = foldl (\acc d -> 10 * acc + digitToInt d) 0 `fmap` go
+    where
+        go :: Parser String String String
+        go = some (satisfy isDigit)
 
 parseIdent :: Parser String String String
 parseIdent = (:) <$> (letterParser <|> underscoreParser) <*> (many (letterParser <|> digitParser <|> underscoreParser))
@@ -120,6 +137,7 @@ toOperator "<=" = success Le
 toOperator "<" = success Lt
 toOperator "&&" = success And
 toOperator "||" = success Or
+toOperator "!"  = success Not
 toOperator _   = fail' "Failed toOperator"
 
 
