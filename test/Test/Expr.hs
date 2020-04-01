@@ -5,7 +5,7 @@ import           Combinators         (Parser (..), Result (..), runParser,
                                       symbol, sepBy1, stringCompare)
 import           Control.Applicative ((<|>))
 import           Expr                (Associativity (..), evaluate, parseExpr,
-                                      parseNum, parseOp, toOperator, uberExpr, parseIdent)
+                                      parseNum, parseOp, toOperator, uberExpr, parseIdent, OpType (..))
 import           Test.Tasty.HUnit    (Assertion, (@?=), assertBool)
 
 isFailure (Failure _) = True
@@ -96,33 +96,47 @@ unit_parseExpr = do
     runParser parseExpr "(1==x+2)||3*4<y-5/6&&(7/=z^8)||(id>12)&&abc<=13||xyz>=42" @?=
       runParser parseExpr "(1==(x+2))||(((3*4)<(y-(5/6))&&(7/=(z^8)))||(((id>12)&&(abc<=13))||(xyz>=42)))"
 
-mult  = stringCompare "*" >>= toOperator
-sum'  = stringCompare "+" >>= toOperator
-minus = stringCompare "-" >>= toOperator
-div'  = stringCompare "/" >>= toOperator
+unit_unaryEpxr = do
+    runParser parseExpr "-1+2" @?= Success "" (BinOp Plus (UnaryOp Minus (Num 1)) (Num 2))
+    runParser parseExpr "-1*2" @?= Success "" (BinOp Mult (UnaryOp Minus (Num 1)) (Num 2))
+    runParser parseExpr "-1==2" @?= Success "" (BinOp Equal (UnaryOp Minus (Num 1)) (Num 2))
+    runParser parseExpr "-1==-2" @?= Success "" (BinOp Equal (UnaryOp Minus (Num 1)) (UnaryOp Minus (Num 2)))
+    runParser parseExpr "-1&&-2" @?= Success "" (BinOp And (UnaryOp Minus (Num 1)) (UnaryOp Minus (Num 2)))
+    runParser parseExpr "!1&&!2" @?= Success "" (BinOp And (UnaryOp Not (Num 1)) (UnaryOp Not (Num 2)))
+    runParser parseExpr "-1^2" @?= Success "" (UnaryOp Minus (BinOp Pow (Num 1) (Num 2)))
+    runParser parseExpr "-1^(-2)" @?= Success "" (UnaryOp Minus (BinOp Pow (Num 1) (UnaryOp Minus (Num 2))))
+    runParser parseExpr "(-1)^2" @?= Success "" (BinOp Pow (UnaryOp Minus (Num 1)) (Num 2))
+    runParser parseExpr "-1+-2" @?= Success "" (BinOp Plus (UnaryOp Minus (Num 1)) (UnaryOp Minus (Num 2)))
+    runParser parseExpr "!-1" @?= Success "" (UnaryOp Not (UnaryOp Minus (Num 1)))
+    runParser parseExpr "!(-1)" @?= Success "" (UnaryOp Not (UnaryOp Minus (Num 1)))
+    runParser parseExpr "-(!1)" @?= Success "" (UnaryOp Minus (UnaryOp Not (Num 1)))
+    runParser parseExpr "-1---2" @?= Success "---2" (UnaryOp Minus (Num 1))
+    runParser parseExpr "-1^-2" @?= Success "^-2" (UnaryOp Minus (Num 1))
 
+    assertBool "" $ isFailure $ runParser parseExpr "--1"
+    assertBool "" $ isFailure $ runParser parseExpr "-!1"
 
-plusexpr :: Parser String String AST
-plusexpr =
-  uberExpr [ (sum', NoAssoc)]
-           (Num <$> parseNum)
-           BinOp
-
+mult  = symbol '*' >>= toOperator
+sum'  = symbol '+' >>= toOperator
+minus = symbol '-' >>= toOperator
+div'  = symbol '/' >>= toOperator
 
 expr1 :: Parser String String AST
 expr1 =
-  uberExpr [ (mult, LeftAssoc)
-           , (minus <|> div', RightAssoc)
-           , (sum', NoAssoc)
+  uberExpr [ (mult, Binary LeftAssoc)
+           , (minus <|> div', Binary RightAssoc)
+           , (sum', Binary NoAssoc)
            ]
            (Num <$> parseNum <|> symbol '(' *> expr1 <* symbol ')')
            BinOp
+           UnaryOp
 
 expr2 :: Parser String String AST
 expr2 =
-  uberExpr [(mult <|> div' <|> minus <|> sum', LeftAssoc)]
+  uberExpr [(mult <|> div' <|> minus <|> sum', Binary LeftAssoc)]
            (Num <$> parseNum)
            BinOp
+           UnaryOp
 
 unit_plusexpr :: Assertion
 unit_plusexpr = do
