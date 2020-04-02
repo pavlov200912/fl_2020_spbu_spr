@@ -3,9 +3,10 @@ module Test.LLang where
 import           Test.Tasty.HUnit    (Assertion, (@?=), assertBool)
 
 import           AST                 (AST (..), Operator (..))
-import LLang    (replaceLineBreaker, replacePlease, replaceMe, replaceHelp, primaryAnalysis, parseIdent,
+import LLang    (replaceLineBreaker, primaryAnalysis, parseIdent,
                     parseNum, parseAssign, parseRead, parseIf, 
-                    parseLLang, parseWrite, parseSeq, parseWhile, stmt, LAst (..))
+                    parseLLang, parseWrite, parseSeq, parseWhile, 
+                    parsePleaseHelpMe, stmt, LAst (..))
 import           Combinators         (Parser (..), Result (..), runParser,
                                       symbol, sepBy1, stringCompare)
 
@@ -21,22 +22,32 @@ unit_replaceLineBreaker = do
     replaceLineBreaker "\na\n" @?= " a "
 
 
-unit_replacePleaseHelpMe :: Assertion
-unit_replacePleaseHelpMe = do
-    replacePlease "7please5" @?= "7 5"
-    replacePlease "7pleasea" @?= "7 a"
-    replacePlease "please please" @?= "   "
-    replaceHelp "help i need help" @?= "  i need  "
-    replaceHelp "will you help me?" @?= "will you   me?"
-    replaceMe "memememm" @?= "   mm"
-    replaceMe "someIdent~me123" @?= "so Ident~ 123"
-    replacePlease "read(xplease);" @?= "read(x );"
-
+--unit_replacePleaseHelpMe :: Assertion
+--unit_replacePleaseHelpMe = do
+--    replacePlease "7please5" @?= "7 5"
+--    replacePlease "7pleasea" @?= "7 a"
+--    replacePlease "please please" @?= "   "
+--    replaceHelp "help i need help" @?= "  i need  "
+--    replaceHelp "will you help me?" @?= "will you   me?"
+--    replaceMe "memememm" @?= "   mm"
+--    replaceMe "someIdent~me123" @?= "so Ident~ 123"
+--    replacePlease "read(xplease);" @?= "read(x );"
+--
 unit_primaryAnalysis :: Assertion
 unit_primaryAnalysis = do
     primaryAnalysis "                 " @?= " "
-    primaryAnalysis "please help me \n please help me " @?= " "
-    primaryAnalysis "some code on my please help  language me           \n" @?= "so code on my language "
+    primaryAnalysis " \n  " @?= " "
+    primaryAnalysis "\n\n" @?= " "
+
+unit_parsePleaseHelpMe :: Assertion
+unit_parsePleaseHelpMe = do 
+    runParser parsePleaseHelpMe " please help me" @?= 
+        Success "" ""
+    runParser parsePleaseHelpMe " please me me me me me please help please" @?= 
+        Success "" "" 
+    assertBool "" $ isFailure $ runParser parsePleaseHelpMe "please help me" 
+    assertBool "" $ isFailure $ runParser parsePleaseHelpMe " read(x);"
+
 
 unit_parseIdent :: Assertion
 unit_parseIdent = do
@@ -150,8 +161,12 @@ unit_parseLLang = do
             \}"  @?= 
                 Success "" stmt
     runParser parseLLang "{read(x);print(xplease);}" @?=
-        Success "" (Seq [Read "x", Write (Ident "please")])
-    runParser parseLLang "{please help me \
+        Success "" (Seq [Read "x", Write (Ident "xplease")])
+
+    runParser parseLLang "{ please help me }" @?=
+        Success "" (Seq [])
+
+    runParser parseLLang "{ please help me \
     \ please help me \
     \ please help me \
     \ please help me \

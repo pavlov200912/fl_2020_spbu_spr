@@ -29,20 +29,20 @@ replaceLineBreaker ('\n':xs) = (' ':(replaceLineBreaker xs))
 replaceLineBreaker (x:xs) = x:(replaceLineBreaker xs) 
 
 -- Долго искал функцию для replace, но не смог ее заимпортить из-за stack ((
-replacePlease :: String -> String
-replacePlease [] = []
-replacePlease ('p':'l':'e':'a':'s':'e':xs) = ' ':(replacePlease xs)
-replacePlease (x:xs) = x:(replacePlease xs) 
-
-replaceHelp :: String -> String
-replaceHelp [] = []
-replaceHelp ('h':'e':'l':'p':xs) = ' ':(replaceHelp xs)
-replaceHelp (x:xs) = x:(replaceHelp xs)
-
-replaceMe :: String -> String
-replaceMe [] = []
-replaceMe ('m':'e':xs) = ' ':(replaceMe xs)
-replaceMe (x:xs) = x:(replaceMe xs)
+--replacePlease :: String -> String
+--replacePlease [] = []
+--replacePlease ('p':'l':'e':'a':'s':'e':xs) = ' ':(replacePlease xs)
+--replacePlease (x:xs) = x:(replacePlease xs) 
+--
+--replaceHelp :: String -> String
+--replaceHelp [] = []
+--replaceHelp ('h':'e':'l':'p':xs) = ' ':(replaceHelp xs)
+--replaceHelp (x:xs) = x:(replaceHelp xs)
+--
+--replaceMe :: String -> String
+--replaceMe [] = []
+--replaceMe ('m':'e':xs) = ' ':(replaceMe xs)
+--replaceMe (x:xs) = x:(replaceMe xs)
 
 squeezeSpaces :: String -> String
 squeezeSpaces [] = []
@@ -50,7 +50,7 @@ squeezeSpaces (' ':' ':xs) = squeezeSpaces (' ':xs)
 squeezeSpaces (x:xs) = x:(squeezeSpaces xs)
 
 primaryAnalysis :: String -> String
-primaryAnalysis = squeezeSpaces . replaceLineBreaker . replacePlease . replaceHelp . replaceMe
+primaryAnalysis = squeezeSpaces . replaceLineBreaker -- . replacePlease . replaceHelp . replaceMe
 
 trimSpacesBegin :: String -> String 
 trimSpacesBegin [] = []
@@ -117,7 +117,23 @@ parseManySpaces = many (symbol ' ')
 -- Parse Keywords
 
 -- keywords that shouldn't be parsed like Var
-indentKeywords = ["esle", "poka", "read", "print"]
+indentKeywords = ["esle", "poka", "read", "print", "please", "help", "me"]
+
+-- please help me - блок обязан быть отделен пробелами от другого кода
+parsePleaseHelpMe :: Parser String String String
+parsePleaseHelpMe = do
+                    parseSomeSpaces
+                    parsePleaseBlock
+                    return ""
+                    where
+  keywordsParser = stringCompare "please" <|> stringCompare "help" <|> stringCompare "me"
+  parsePleaseBlock = do
+                     keywordsParser
+                     many (do 
+                       parseSomeSpaces
+                       keywordsParser
+                       return "")
+                     return "" 
 
 parseIf :: Parser String String LAst
 parseIf = do
@@ -191,12 +207,15 @@ parseSeq :: Parser String String LAst
 parseSeq = do
            parseManySpaces
            symbol '{'
-           list <- many (parseInstruction)
+           list <- many (parseInstruction) 
+           many parsePleaseHelpMe -- In case there is no instructions in Seq, but there is please help me
            parseManySpaces
            symbol '}'
            return $ Seq list
 
-parseInstruction = parseAssign <|> parseIf <|> parseWhile <|> parseRead <|> parseWrite
+parseInstruction = do
+                   many parsePleaseHelpMe 
+                   parseAssign <|> parseIf <|> parseWhile <|> parseRead <|> parseWrite
 
 parsePrimary :: Parser String String String
 parsePrimary = Parser $ \input -> Success (primaryAnalysis input) ""
