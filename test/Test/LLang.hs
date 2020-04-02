@@ -30,6 +30,7 @@ unit_replacePleaseHelpMe = do
     replaceHelp "will you help me?" @?= "will you   me?"
     replaceMe "memememm" @?= "   mm"
     replaceMe "someIdent~me123" @?= "so Ident~ 123"
+    replacePlease "read(xplease);" @?= "read(x );"
 
 unit_primaryAnalysis :: Assertion
 unit_primaryAnalysis = do
@@ -148,6 +149,8 @@ unit_parseLLang = do
                \ }; \
             \}"  @?= 
                 Success "" stmt
+    runParser parseLLang "{read(x);print(xplease);}" @?=
+        Success "" (Seq [Read "x", Write (Ident "please")])
     runParser parseLLang "{please help me \
     \ please help me \
     \ please help me \
