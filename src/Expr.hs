@@ -1,11 +1,12 @@
 module Expr where
 
-import           AST         (AST (..), Operator (..))
+import           AST         (Subst(..), AST (..), Operator (..))
 import           Combinators (Parser (..), Result (..), elem', elemSome', fail',
                              satisfy, success, sepBy1, symbol, stringCompare, satisfySome)
 import           Data.Char   (digitToInt, isDigit)
 import           Control.Applicative
 import           Data.Function
+import qualified Data.Map as Map
 
 data Associativity
   = LeftAssoc  -- 1 @ 2 @ 3 @ 4 = (((1 @ 2) @ 3) @ 4)
@@ -14,6 +15,40 @@ data Associativity
 
 data OpType = Binary Associativity
             | Unary
+
+
+evalOperator :: Operator -> Int -> Int -> Int
+evalOperator And 0 _ = 0
+evalOperator And _ 0 = 0
+evalOperator And _ _ = 1
+evalOperator Or  0 0 = 0
+evalOperator Or  _ _ = 1
+evalOperator Not _ 0 = 1
+evalOperator Not _ _ = 0
+evalOperator Le x y = boolInt $ (<=) x y 
+evalOperator Lt x y = boolInt $ (<)  x y
+evalOperator Ge x y = boolInt $ (>=) x y 
+evalOperator Gt x y = boolInt $ (>)  x y
+evalOperator Equal x y  = boolInt $ (==) x y 
+evalOperator Nequal x y = boolInt $ (/=) x y
+evalOperator Pow   x y = x^y
+evalOperator Mult  x y = x*y
+evalOperator Div   x y = x `div` y
+evalOperator Plus  x y = x+y
+evalOperator Minus x y = x-y
+
+
+
+evalExpr :: Subst -> AST -> Maybe Int
+evalExpr _ (Num x) = Just x
+evalExpr subst (BinOp op l r) = do
+                                left <- evalExpr subst l 
+                                right <- evalExpr subst r
+                                return $ evalOperator op left right
+evalExpr subst (UnaryOp op l) = do
+                                left <- evalExpr subst l 
+                                return $ evalOperator op 0 left
+evalExpr subst (Ident x) = Map.lookup x subst
 
 uberExpr :: Monoid e
          => [(Parser e i op, OpType)] -- список операций с их арностью и, в случае бинарных, ассоциативностью

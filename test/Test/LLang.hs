@@ -1,277 +1,136 @@
 module Test.LLang where
 
-import           Test.Tasty.HUnit    (Assertion, (@?=), assertBool)
+import           AST              (AST (..), Operator (..))
+import qualified Data.Map         as Map
+import           LLang            (Configuration (..), LAst (..), eval,
+                                   initialConf)
+import           Test.Tasty.HUnit (Assertion, assertBool, (@?=))
 
-import           AST                 (AST (..), Operator (..))
-import LLang    (parseIdent,
-                    parseNum, parseAssign, parseRead, parseIf, 
-                    parseLLang, parseWrite, parseSeq, parseWhile, 
-                    parsePleaseHelpMe, stmt, LAst (..))
-import           Combinators         (Parser (..), Result (..), runParser,
-                                      symbol, sepBy1, stringCompare)
+-- read x;
+-- if (x > 13)
+-- then { write x }
+-- else {
+--     while (x < 42) {
+--       x := x * 7;
+--       write (x);
+--     }
+-- }
+stmt1 :: LAst
+stmt1 =
+  Seq
+    [ Read "X"
+    , If (BinOp Gt (Ident "X") (Num 13))
+         (Write (Ident "X"))
+         (While (BinOp Lt (Ident "X") (Num 42))
+                (Seq [ Assign "X"
+                        (BinOp Mult (Ident "X") (Num 7))
+                     , Write (Ident "X")
+                     ]
+                )
+         )
+    ]
 
-
-
-isFailure (Failure _) = True
-isFailure  _          = False
-
-
-unit_parsePleaseHelpMe :: Assertion
-unit_parsePleaseHelpMe = do 
-    runParser parsePleaseHelpMe " please help me" @?= 
-        Success "" ""
-    runParser parsePleaseHelpMe " please me me me me me please help please" @?= 
-        Success "" "" 
-    assertBool "" $ isFailure $ runParser parsePleaseHelpMe "please help me" 
-    assertBool "" $ isFailure $ runParser parsePleaseHelpMe " read(x);"
-
-
-unit_parseIdent :: Assertion
-unit_parseIdent = do
-    runParser parseIdent "abc def" @?= Success " def" "abc"
-    runParser parseIdent "AbC dEf" @?= Success " dEf" "AbC"
-    runParser parseIdent "a~b~c d~e" @?= Success " d~e" "a~b~c"
-    runParser parseIdent "x~ " @?= Success " " "x~"
-    runParser parseIdent "abc123" @?= Success "" "abc123"
-    runParser parseIdent "abc*1" @?= Success "*1" "abc"
-    assertBool "" $ isFailure $ runParser parseIdent "123abc"
-    assertBool "" $ isFailure $ runParser parseIdent "123"
-    assertBool "" $ isFailure $ runParser parseIdent ""
-    assertBool "" $ isFailure $ runParser parseIdent "_123"
-    assertBool "" $ isFailure $ runParser parseIdent "_"
+unit_stmt1 :: Assertion
+unit_stmt1 = do
+  let xIs n = Map.fromList [("X", n)]
+  eval stmt1 (initialConf [1]) @?= Just (Conf (xIs 49) [] [49, 7])
+  eval stmt1 (initialConf [10]) @?= Just (Conf (xIs 70) [] [70])
+  eval stmt1 (initialConf [42]) @?= Just (Conf (xIs 42) [] [42])
 
 
-unit_parseNum :: Assertion
-unit_parseNum = do
-    runParser parseNum "7" @?= Success "" 7
-    runParser parseNum "12+3" @?= Success "+3" 12
-    runParser parseNum "007" @?= Success "" 7
-    runParser parseNum "0.123" @?= Success "" 123
-    runParser parseNum "124.124" @?= Success "" 124124
-    assertBool "" $ isFailure (runParser parseNum "+3")
-    assertBool "" $ isFailure (runParser parseNum "a")
+-- read x;
+-- if (x)
+-- then {
+--   while (x) {
+--     x := x - 2;
+--     write (x);
+--   }
+-- else {}
+stmt2 :: LAst
+stmt2 =
+  Seq
+    [ Read "x"
+    , If (Ident "x")
+         (While (Ident "x")
+                (Seq
+                   [ (Assign "x" (BinOp Minus (Ident "x") (Num 2)))
+                   , (Write (Ident "x"))
+                   ]
+                )
+         )
+         (Seq [])
+    ]
 
-unit_parseAssign :: Assertion
-unit_parseAssign = do
-    runParser parseAssign "ident := 123;" @?= Success "" (Assign "ident" (Num 123))
-    runParser parseAssign "kek123 := 12*2;" @?= Success "" (Assign "kek123" (BinOp Mult (Num 12) (Num 2)))
-    runParser parseAssign "    ident~ :=    12;" @?= Success "" (Assign "ident~" (Num 12))
-    assertBool "" $ isFailure (runParser parseAssign " esle := 123;")
-    assertBool "" $ isFailure (runParser parseAssign " poka := 123;")
-    assertBool "" $ isFailure (runParser parseAssign " ident := 12 3;")
-    assertBool "" $ isFailure (runParser parseAssign " ident := 123")
-    assertBool "" $ isFailure (runParser parseAssign " ident:= 123")
-    assertBool "" $ isFailure (runParser parseAssign " ident :=123")
-   
-unit_parseWhile :: Assertion
-unit_parseWhile = do
-    runParser parseWhile " poka (x>0) {};" @?= Success "" (While (BinOp Gt (Ident "x") (Num 0)) (Seq []))
-    runParser parseWhile " poka (x==0) {x := x+1; print(x);};" @?= 
-        Success "" (While (BinOp Equal (Ident "x") (Num 0))
-         (Seq [Assign "x" (BinOp Plus (Ident "x") (Num 1)), Write $ Ident "x"]))
-    runParser parseWhile "poka (koronavirus==1) {print(stay~at~home);};" @?= 
-        Success "" (While (BinOp Equal (Ident "koronavirus") (Num 1)) (Seq [Write $ Ident "stay~at~home"]))
-    assertBool "" $ isFailure (runParser parseWhile "poka (x==0) {x := x+1; print(x);}")
-    assertBool "" $ isFailure (runParser parseWhile "poka (x!=0) {x := x+1; print(x);};")
+unit_stmt2 :: Assertion
+unit_stmt2 = do
+  let xIs n = Map.fromList [("x", n)]
+  eval stmt2 (initialConf [0]) @?= Just (Conf (xIs 0) [] [])
+  eval stmt2 (initialConf [2]) @?= Just (Conf (xIs 0) [] [0])
+  eval stmt2 (initialConf [42]) @?= Just (Conf (xIs 0) [] (filter even [0 .. 40]))
 
-unit_parseWrite :: Assertion
-unit_parseWrite = do
-    runParser parseWrite "print(123+2);" @?= Success "" (Write $ BinOp Plus (Num 123) (Num 2))
-    runParser parseWrite "print(hello~world);" @?= 
-        Success "" (Write $ Ident "hello~world")
-    runParser parseWrite "print(0);" @?= Success "" (Write $ Num 0)
-    assertBool "" $ isFailure (runParser parseWrite "print(1+esle);")
-    assertBool "" $ isFailure (runParser parseWrite "print( 1);")
-    assertBool "" $ isFailure (runParser parseWrite "print(123)")
-    assertBool "" $ isFailure (runParser parseWrite "pritn(123);")
+-- read x;
+-- read y;
+-- write (x == y);
+stmt3 :: LAst
+stmt3 =
+  Seq
+    [ Read "x"
+    , Read "y"
+    , Write (BinOp Equal (Ident "x") ((Ident "y")))
+    ]
 
-unit_parseRead :: Assertion
-unit_parseRead = do
-    runParser parseRead "read(x123);" @?= Success "" (Read "x123")
-    runParser parseRead "read(hello~world);" @?= 
-        Success "" (Read "hello~world")
-    assertBool "" $ isFailure (runParser parseRead "read(0);")
-    assertBool "" $ isFailure (runParser parseRead "read(esle);")
-    assertBool "" $ isFailure (runParser parseRead "raed(x);")
-    assertBool "" $ isFailure (runParser parseRead "read(y)")
-    assertBool "" $ isFailure (runParser parseRead "read(x_y);")
+unit_stmt3 :: Assertion
+unit_stmt3 = do
+  let subst x y = Map.fromList [("x", x), ("y", y) ]
+  eval stmt3 (initialConf [0, 2]) @?= Just (Conf (subst 0 2) [] [0])
+  eval stmt3 (initialConf [2, 2]) @?= Just (Conf (subst 2 2) [] [1])
+  eval stmt3 (initialConf [42]) @?= Nothing
 
-unit_parseSeq :: Assertion
-unit_parseSeq = do 
-    runParser parseSeq "{}" @?= Success "" (Seq [])
-    runParser parseSeq "{      }" @?= Success "" (Seq [])
-    runParser parseSeq "{x := 1;}" @?= Success "" (Seq [Assign "x" (Num 1)])
-    runParser parseSeq "{x := 1;x := 2;}" @?= Success "" (Seq [Assign "x" (Num 1), Assign "x" (Num 2)])
-    runParser parseSeq "{read(x); print(12);}" @?= 
-        Success "" (Seq [Read "x", Write $ Num 12])
-    runParser parseSeq "{esle (0) then {} else {};}" @?= 
-        Success ""  (Seq [If (Num 0) (Seq []) (Seq [])])
-    runParser parseSeq "{esle (0) then {} else {};  print(12);  read(x);  }" @?= 
-        Success ""  (Seq [If (Num 0) (Seq []) (Seq []), Write $ Num 12, Read "x"])
+-- read n;
+-- if (n == 1 || n == 2)
+-- then {
+--   write 1;
+-- }
+-- else {
+--   i := 2;
+--   cur := 1
+--   prev := 1
+--   while (i < n) {
+--     temp := cur + prev;
+--     prev := cur;
+--     cur := temp;
+--     i := i + 1;
+--   }
+--   write (cur);
+-- }
+stmt4 :: LAst
+stmt4 =
+  Seq
+    [ Read "n"
+    , If (BinOp Or (BinOp Equal (Ident "n") (Num 1)) (BinOp Equal (Ident "n") (Num 2)))
+         (Write (Num 1))
+         (Seq
+            [ Assign "i" (Num 2)
+            , Assign "cur" (Num 1)
+            , Assign "prev" (Num 1)
+            , While (BinOp Lt (Ident "i") (Ident "n"))
+                     (Seq
+                        [ Assign "temp" (BinOp Plus (Ident "cur") (Ident "prev"))
+                        , Assign "prev" (Ident "cur")
+                        , Assign "cur" (Ident "temp")
+                        , Assign "i" (BinOp Plus (Ident "i") (Num 1))
+                        ]
+                     )
+            , Write (Ident "cur")
+            ]
+         )
+    ]
 
-unit_parseIf :: Assertion
-unit_parseIf = do
-    runParser parseIf "esle (0) then {} else {};" @?= Success "" (If (Num 0) (Seq []) (Seq []))
-    runParser parseIf "esle (x==0) then {print(x);} else {read(x);};" @?= 
-        Success "" (If (BinOp Equal (Ident "x") (Num 0)) (Seq [Write $ Ident "x"]) (Seq [Read "x"]))
-    assertBool "" $ isFailure (runParser parseRead "else (0) then {} else {};")
-    assertBool "" $ isFailure (runParser parseRead "esle (0) then {} else {}")
-    assertBool "" $ isFailure (runParser parseRead "esle (0) then {} esle {}")
-    assertBool "" $ isFailure (runParser parseRead "esle (0) then print(0); else {};")
-
-unit_parseLLang :: Assertion
-unit_parseLLang = do
-    runParser parseLLang 
-            "{ \
-               \ read(x); \
-               \ esle (x>13) \
-               \ then { \ 
-               \     print(x); \
-               \     please help me \
-               \ } \
-               \ else { \
-               \     poka (x<42) { \
-               \         x := x*7; \
-               \         print(x);\ 
-               \     };\ 
-               \ }; \
-            \}"  @?= 
-                Success "" stmt
-    runParser parseLLang "{read(x);print(xplease);}" @?=
-        Success "" (Seq [Read "x", Write (Ident "xplease")])
-
-    runParser parseLLang "{ please help me }" @?=
-        Success "" (Seq [])
-
-    runParser parseLLang "{ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \ please help me \
-    \}" @?= Success "" (Seq [])
+unit_stmt4 :: Assertion
+unit_stmt4 = do
+  let subst n i cur prev temp = Map.fromList [("n", n), ("i", i), ("cur", cur), ("prev", prev), ("temp", temp)]
+  let subst' n = Map.fromList [("n", n)]
+  eval stmt4 (initialConf [1]) @?= Just (Conf (subst' 1) [] [1])
+  eval stmt4 (initialConf [2]) @?= Just (Conf (subst' 2) [] [1])
+  eval stmt4 (initialConf [10]) @?= Just (Conf (subst 10 10 55 34 55) [] [55] )
+  eval stmt4 (initialConf []) @?= Nothing

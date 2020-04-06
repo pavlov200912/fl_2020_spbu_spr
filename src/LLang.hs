@@ -1,18 +1,24 @@
 module LLang where
 
-import AST (AST (..), Operator (..))
+import AST (Subst(..), AST (..), Operator (..))
 import Combinators (Parser (..), Result (..), elem', elemSome', fail',
                       satisfy, success, sepBy1, symbol, stringCompare, satisfySome)
-import Expr (OpType (..), Associativity (..), uberExpr, toOperator)
+import Expr (OpType (..), Associativity (..), uberExpr, toOperator, evalExpr)
 import           Control.Applicative
 import           Data.Char   (digitToInt, isDigit)
 import Control.Monad
+import qualified Data.Map as Map
+
 
 --import Data.Text
 
 type Expr = AST
 
 type Var = String
+
+data Configuration = Conf { subst :: Subst, input :: [Int], output :: [Int] }
+                   deriving (Show, Eq)
+
 
 data LAst
   = If { cond :: Expr, thn :: LAst, els :: LAst }
@@ -204,3 +210,47 @@ stmt =
 -- i like parseLLang more
 parseL :: Parser String String LAst
 parseL = parseLLang
+
+
+initialConf :: [Int] -> Configuration
+initialConf input = Conf Map.empty input []
+
+eval :: LAst -> Configuration -> Maybe Configuration
+eval (If cond thn els) conf@(Conf subst input output) = do
+                                                cond_res <- evalExpr subst cond
+                                                if (cond_res == 0) then
+                                                  eval els conf
+                                                else
+                                                  eval thn conf
+
+eval while@(While cond body) conf@(Conf subst input output) = do
+                                                cond_res <- evalExpr subst cond
+                                                if (cond_res == 0) then
+                                                  return conf
+                                                else
+                                                  do 
+                                                  body_res <- eval body conf
+                                                  eval while body_res
+eval (Assign var expr) conf@(Conf subst input output) = do
+                                                        expr_res <- evalExpr subst expr
+                                                        return $ Conf (Map.insert var expr_res subst) input output 
+eval (Read var) conf@(Conf subst [] output) = Nothing 
+eval (Read var) conf@(Conf subst (token:input) output) = return $ Conf (Map.insert var token subst) input output 
+
+eval (Write expr) conf@(Conf subst input output) = do 
+                                                   expr_res <- evalExpr subst expr
+                                                   return $ Conf subst input (expr_res:output)
+
+eval (Seq []) conf = Just conf  
+eval (Seq (x:xs)) conf = do
+                         first <- eval x conf
+                         eval (Seq xs) first  
+
+--data LAst
+--  = If { cond :: Expr, thn :: LAst, els :: LAst }
+--  | While { cond :: AST, body :: LAst }
+--  | Assign { var :: Var, expr :: Expr }
+--  | Read { var :: Var }
+--  | Write { expr :: Expr }
+--  | Seq { statements :: [LAst] }
+--  deriving (Show, Eq)
