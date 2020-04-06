@@ -3,7 +3,7 @@ module Test.LLang where
 import           Test.Tasty.HUnit    (Assertion, (@?=), assertBool)
 
 import           AST                 (AST (..), Operator (..))
-import LLang    (replaceLineBreaker, primaryAnalysis, parseIdent,
+import LLang    (parseIdent,
                     parseNum, parseAssign, parseRead, parseIf, 
                     parseLLang, parseWrite, parseSeq, parseWhile, 
                     parsePleaseHelpMe, stmt, LAst (..))
@@ -15,29 +15,6 @@ import           Combinators         (Parser (..), Result (..), runParser,
 isFailure (Failure _) = True
 isFailure  _          = False
 
-unit_replaceLineBreaker :: Assertion
-unit_replaceLineBreaker = do
-    replaceLineBreaker "7\n" @?= "7 "
-    replaceLineBreaker "7 a" @?= "7 a"
-    replaceLineBreaker "\na\n" @?= " a "
-
-
---unit_replacePleaseHelpMe :: Assertion
---unit_replacePleaseHelpMe = do
---    replacePlease "7please5" @?= "7 5"
---    replacePlease "7pleasea" @?= "7 a"
---    replacePlease "please please" @?= "   "
---    replaceHelp "help i need help" @?= "  i need  "
---    replaceHelp "will you help me?" @?= "will you   me?"
---    replaceMe "memememm" @?= "   mm"
---    replaceMe "someIdent~me123" @?= "so Ident~ 123"
---    replacePlease "read(xplease);" @?= "read(x );"
---
-unit_primaryAnalysis :: Assertion
-unit_primaryAnalysis = do
-    primaryAnalysis "                 " @?= " "
-    primaryAnalysis " \n  " @?= " "
-    primaryAnalysis "\n\n" @?= " "
 
 unit_parsePleaseHelpMe :: Assertion
 unit_parsePleaseHelpMe = do 

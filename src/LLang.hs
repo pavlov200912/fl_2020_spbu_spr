@@ -8,6 +8,8 @@ import           Control.Applicative
 import           Data.Char   (digitToInt, isDigit)
 import Control.Monad
 
+--import Data.Text
+
 type Expr = AST
 
 type Var = String
@@ -21,44 +23,6 @@ data LAst
   | Seq { statements :: [LAst] }
   deriving (Show, Eq)
 
-
--- Функции первичного синтаксического анализа
-replaceLineBreaker :: String -> String
-replaceLineBreaker [] = []
-replaceLineBreaker ('\n':xs) = (' ':(replaceLineBreaker xs))
-replaceLineBreaker (x:xs) = x:(replaceLineBreaker xs) 
-
--- Долго искал функцию для replace, но не смог ее заимпортить из-за stack ((
---replacePlease :: String -> String
---replacePlease [] = []
---replacePlease ('p':'l':'e':'a':'s':'e':xs) = ' ':(replacePlease xs)
---replacePlease (x:xs) = x:(replacePlease xs) 
---
---replaceHelp :: String -> String
---replaceHelp [] = []
---replaceHelp ('h':'e':'l':'p':xs) = ' ':(replaceHelp xs)
---replaceHelp (x:xs) = x:(replaceHelp xs)
---
---replaceMe :: String -> String
---replaceMe [] = []
---replaceMe ('m':'e':xs) = ' ':(replaceMe xs)
---replaceMe (x:xs) = x:(replaceMe xs)
-
-squeezeSpaces :: String -> String
-squeezeSpaces [] = []
-squeezeSpaces (' ':' ':xs) = squeezeSpaces (' ':xs)
-squeezeSpaces (x:xs) = x:(squeezeSpaces xs)
-
-primaryAnalysis :: String -> String
-primaryAnalysis = squeezeSpaces . replaceLineBreaker -- . replacePlease . replaceHelp . replaceMe
-
-trimSpacesBegin :: String -> String 
-trimSpacesBegin [] = []
-trimSpacesBegin (' ':xs) = trimSpacesBegin xs
-trimSpacesBegin (x:xs) = x:(trimSpacesBegin xs)
-
-trimSpacesEnd :: String -> String 
-trimSpacesEnd = reverse . trimSpacesBegin . reverse
 
 -- Парсер для положительных целых чисел
 -- Ведет себя неожиданно, но так и задуманно
@@ -111,10 +75,9 @@ parseExpr = uberExpr [
 
 
 parseSomeSpaces :: Parser String String String
-parseSomeSpaces = some (symbol ' ')
+parseSomeSpaces = some (symbol ' ' <|> symbol '\n')
 
-parseManySpaces = many (symbol ' ')
--- Parse Keywords
+parseManySpaces = many (symbol ' ' <|> symbol '\n')
 
 -- keywords that shouldn't be parsed like Var
 indentKeywords = ["esle", "poka", "read", "print", "please", "help", "me"]
@@ -217,12 +180,8 @@ parseInstruction = do
                    many parsePleaseHelpMe 
                    parseAssign <|> parseIf <|> parseWhile <|> parseRead <|> parseWrite
 
-parsePrimary :: Parser String String String
-parsePrimary = Parser $ \input -> Success (primaryAnalysis input) ""
-
 parseLLang :: Parser String String LAst
 parseLLang = do 
-             parsePrimary
              parseManySpaces
              last <- parseSeq <|> parseInstruction
              parseManySpaces
