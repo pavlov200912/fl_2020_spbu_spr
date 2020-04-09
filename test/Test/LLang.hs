@@ -3,7 +3,7 @@ module Test.LLang where
 import           Test.Tasty.HUnit    (Assertion, (@?=), assertBool)
 
 import           AST                 (AST (..), Operator (..))
-import LLang    (parseIdent,
+import LLang    (parseExpr, parseIdent,
                     parseNum, parseAssign, parseRead, parseIf, 
                     parseLLang, parseWrite, parseSeq, parseWhile, 
                     parsePleaseHelpMe, stmt, LAst (..))
@@ -18,12 +18,14 @@ isFailure  _          = False
 
 unit_parsePleaseHelpMe :: Assertion
 unit_parsePleaseHelpMe = do 
-    runParser parsePleaseHelpMe " please help me" @?= 
+    runParser parsePleaseHelpMe "please " @?= 
         Success "" ""
-    runParser parsePleaseHelpMe " please me me me me me please help please" @?= 
-        Success "" "" 
-    assertBool "" $ isFailure $ runParser parsePleaseHelpMe "please help me" 
-    assertBool "" $ isFailure $ runParser parsePleaseHelpMe " read(x);"
+    runParser parsePleaseHelpMe "please()" @?= 
+        Success "" ""
+    runParser parsePleaseHelpMe "please(x)" @?= 
+        Success "" ""
+    runParser parsePleaseHelpMe "please(x+1)" @?= 
+        Success "" ""
 
 
 unit_parseIdent :: Assertion
@@ -142,6 +144,9 @@ unit_parseLLang = do
 
     runParser parseLLang "{ please help me }" @?=
         Success "" (Seq [])
+
+    runParser parseLLang "{ please(x) me help please read(x);please help }" @?=
+        Success "" (Seq [Read "x"])
 
     runParser parseLLang "{ please help me \
     \ please help me \

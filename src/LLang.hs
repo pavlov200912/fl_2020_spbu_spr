@@ -85,19 +85,18 @@ indentKeywords = ["esle", "poka", "read", "print", "please", "help", "me"]
 -- please help me - блок обязан быть отделен пробелами от другого кода
 parsePleaseHelpMe :: Parser String String String
 parsePleaseHelpMe = do
-                    parseSomeSpaces
-                    parsePleaseBlock
+                    parseManySpaces
+                    keywordsParser
+                    parseSomeSpaces <|> parseBrackets
                     return ""
                     where
   keywordsParser = stringCompare "please" <|> stringCompare "help" <|> stringCompare "me"
-  parsePleaseBlock = do
-                     keywordsParser
-                     many (do 
-                       parseSomeSpaces
-                       keywordsParser
-                       return "")
-                     return "" 
-
+  parseBrackets = (stringCompare "()") <|> (do
+                                            symbol '('
+                                            parseExpr
+                                            symbol ')'
+                                            return "")
+ 
 parseIf :: Parser String String LAst
 parseIf = do
           parseManySpaces
