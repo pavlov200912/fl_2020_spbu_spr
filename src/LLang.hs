@@ -87,7 +87,7 @@ parsePleaseHelpMe :: Parser String String String
 parsePleaseHelpMe = do
                     parseManySpaces
                     keywordsParser
-                    parseSomeSpaces <|> parseBrackets
+                    parseSomeSpaces <|> parseBrackets <|> stringCompare ";" <|> parseSeqEnd
                     return ""
                     where
   keywordsParser = stringCompare "please" <|> stringCompare "help" <|> stringCompare "me"
@@ -96,6 +96,9 @@ parsePleaseHelpMe = do
                                             parseExpr
                                             symbol ')'
                                             return "")
+  parseSeqEnd = Parser $ helper where
+    helper input@('}':xs) = Success input ""
+    helper input = Failure ""
  
 parseIf :: Parser String String LAst
 parseIf = do

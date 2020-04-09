@@ -11,6 +11,8 @@ import           Combinators         (Parser (..), Result (..), runParser,
                                       symbol, sepBy1, stringCompare)
 
 
+import           Control.Applicative
+
 
 isFailure (Failure _) = True
 isFailure  _          = False
@@ -26,7 +28,12 @@ unit_parsePleaseHelpMe = do
         Success "" ""
     runParser parsePleaseHelpMe "please(x+1)" @?= 
         Success "" ""
-
+    runParser parsePleaseHelpMe "please;" @?= 
+        Success "" ""
+    runParser parsePleaseHelpMe "please}" @?= 
+        Success "}" ""
+    runParser (many parsePleaseHelpMe) "please;help;me;" @?= 
+        Success "" ["", "", ""]
 
 unit_parseIdent :: Assertion
 unit_parseIdent = do
@@ -149,6 +156,15 @@ unit_parseLLang = do
         Success "" (Seq [Read "x"])
 
     runParser parseLLang "{read(x);please }" @?=
+        Success "" (Seq [Read "x"])
+
+    runParser parseLLang "{read(x);please;}" @?=
+        Success "" (Seq [Read "x"])
+    
+    runParser parseLLang "{read(x);please}" @?=
+        Success "" (Seq [Read "x"])
+
+    runParser parseLLang "{read(x);please;help}" @?=
         Success "" (Seq [Read "x"])
 
     runParser parseLLang "{read(x);please(x)}" @?=
