@@ -148,6 +148,12 @@ unit_parseLLang = do
     runParser parseLLang "{ please(x) me help please read(x);please help }" @?=
         Success "" (Seq [Read "x"])
 
+    runParser parseLLang "{read(x);please }" @?=
+        Success "" (Seq [Read "x"])
+
+    runParser parseLLang "{read(x);please(x)}" @?=
+        Success "" (Seq [Read "x"])
+
     runParser parseLLang "{ please help me \
     \ please help me \
     \ please help me \
