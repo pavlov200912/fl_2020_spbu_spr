@@ -35,16 +35,30 @@ incrPos :: InputStream a -> InputStream a
 incrPos (InputStream str pos) = InputStream str (pos + 1)
 
 instance Functor (Parser error input) where
-  fmap = error "fmap not implemented"
+  -- fmap :: (a -> b) -> Parser e i a -> Parser e i b
+  fmap f p = Parser $ \input -> 
+    case runParser p input of 
+      Success i x -> Success i (f x)
+      Failure e -> Failure e
 
 instance Applicative (Parser error input) where
-  pure = error "pure not implemented"
-  (<*>) = error "<*> not implemented"
+  -- pure :: a -> Parser e i a
+  pure x = Parser $ \input -> Success input x
+  -- <*> :: f (a -> b) -> f a -> f b 
+  p <*> q = Parser $ \input ->
+      case runParser p input of
+        Failure e1   -> Failure e1
+        Success i1 g ->   case runParser q i1 of
+             Failure e2   -> Failure e2
+             Success i2 y -> Success i2 (g y)
 
 instance Monad (Parser error input) where
-  return = error "return not implemented"
+  return = pure
 
-  (>>=) = error ">>= not implemented"
+  p >>= f = Parser $ \input -> 
+    case runParser p input of 
+      Success i r -> runParser (f r) i
+      Failure e   -> Failure e
 
 instance Monoid error => Alternative (Parser error input) where
   empty = Parser $ \input -> Failure [makeError mempty (curPos input)]
@@ -82,13 +96,28 @@ symbol c = ("Expected symbol: " ++ show c) <?> satisfy (== c)
 
 eof :: Parser String String ()
 eof = Parser $ \input -> if null $ stream input then Success input () else Failure [makeError "Not eof" (curPos input)]
+stringCompare :: String -> Parser String String String
+stringCompare [] = success []
+stringCompare (x:xs) = (:) <$> satisfy (== x) <*> stringCompare xs  
+ 
 
+-- Успешно завершается, если последовательность содержит как минимум один элемент
+elem' :: (Show a) => Parser String [a] a
+elem' = satisfy (const True)
+
+elemSome' :: [String] -> Parser String String String
+elemSome' []     = return ""
+elemSome' (x:xs) = stringCompare x <|> elemSome' xs
 -- Проверяет, что первый элемент входной последовательности удовлетворяет предикату
 satisfy :: (a -> Bool) -> Parser String [a] a
 satisfy p = Parser $ \(InputStream input pos) ->
   case input of
     (x:xs) | p x -> Success (incrPos $ InputStream xs pos) x
     input        -> Failure [makeError "Predicate failed" pos]
+    
+
+satisfySome :: Show a => (a -> Bool) -> Parser String [a] [a]
+satisfySome p = some (satisfy p) 
 
 -- Успешно парсит пустую строку
 epsilon :: Parser e i ()

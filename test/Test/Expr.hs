@@ -3,11 +3,12 @@ module Test.Expr where
 import           AST                 (AST (..), Operator (..))
 import           Combinators         (InputStream (..), Parser (..),
                                       Result (..), runParser,
-                                      symbol, toStream, word)
+                                      symbol, toStream, word, sepBy1, stringCompare)
 import           Control.Applicative ((<|>))
-import           Expr                (Associativity (..), OpType (..), evaluate,
-                                      parseExpr, parseNegNum, parseNum,                                       uberExpr, parseIdent)
-import           Test.Tasty.HUnit    (Assertion, assertBool, (@?=))
+
+import           Expr                (Associativity (..), evaluate, parseExpr,
+                                      parseNum, parseOp, toOperator, uberExpr, parseIdent, parseNegNum, OpType (..))
+import           Test.Tasty.HUnit    (Assertion, (@?=), assertBool)
 
 testFailure = assertBool "" . isFailure
 
@@ -43,12 +44,21 @@ unit_parseNum = do
 
 unit_parseNegNum :: Assertion
 unit_parseNegNum = do
+<<<<<<< HEAD
     runParser parseNegNum "123" @?= Success (toStream "" 3) (123)
     runParser parseNegNum "-123" @?= Success (toStream "" 4) (-123)
     runParser parseNegNum "--123" @?= Success (toStream "" 5) (123)
     testFailure $ runParser parseNegNum "+-3"
     testFailure $ runParser parseNegNum "-+3"
     testFailure $ runParser parseNegNum "-a"
+=======
+    runParser parseNegNum "123" @?= Success "" 123
+    runParser parseNegNum "-123" @?= Success "" (-123)
+    runParser parseNegNum "--123" @?= Success "" 123
+    assertBool "" $ isFailure $ runParser parseNegNum "+-3"
+    assertBool "" $ isFailure $ runParser parseNegNum "-+3"
+    assertBool "" $ isFailure $ runParser parseNegNum "-a"
+>>>>>>> HW07
 
 unit_parseIdent :: Assertion
 unit_parseIdent = do
@@ -70,6 +80,7 @@ erasePosition x               = x
 
 unit_parseExpr :: Assertion
 unit_parseExpr = do
+<<<<<<< HEAD
     runParser parseExpr "1*2*3"   @?= Success (toStream "" 5) (BinOp Mult (BinOp Mult (Num 1) (Num 2)) (Num 3))
     runParser parseExpr "123"     @?= Success (toStream "" 3) (Num 123)
     runParser parseExpr "abc"     @?= Success (toStream "" 3) (Ident "abc")
@@ -119,6 +130,59 @@ mult  = word "*" *> return Mult
 sum'  = word "+" *> return Plus
 minus = word "-" *> return Minus
 div'  = word "/" *> return Div
+=======
+    runParser parseExpr "1*2*3"   @?= Success "" (BinOp Mult (BinOp Mult (Num 1) (Num 2)) (Num 3))
+    runParser parseExpr "123"     @?= Success "" (Num 123)
+    runParser parseExpr "abc"     @?= Success "" (Ident "abc")
+    runParser parseExpr "1*2+3*4" @?= Success "" (BinOp Plus (BinOp Mult (Num 1) (Num 2)) (BinOp Mult (Num 3) (Num 4)))
+    runParser parseExpr "1+2*3+4" @?= Success "" (BinOp Plus (BinOp Plus (Num 1) (BinOp Mult (Num 2) (Num 3))) (Num 4))
+    runParser parseExpr "1*x*3"   @?= Success "" (BinOp Mult (BinOp Mult (Num 1) (Ident "x")) (Num 3))
+    runParser parseExpr "xyz"     @?= Success "" (Ident "xyz")
+    runParser parseExpr "1*x+z*4" @?= Success "" (BinOp Plus (BinOp Mult (Num 1) (Ident "x")) (BinOp Mult (Ident "z") (Num 4)))
+    runParser parseExpr "1+y*3+z" @?= Success "" (BinOp Plus (BinOp Plus (Num 1) (BinOp Mult (Ident "y") (Num 3))) (Ident "z"))
+    runParser parseExpr "1+x" @?= Success "" (BinOp Plus (Num 1) (Ident "x"))
+    runParser parseExpr "1-x" @?= Success "" (BinOp Minus (Num 1) (Ident "x"))
+    runParser parseExpr "1*x" @?= Success "" (BinOp Mult (Num 1) (Ident "x"))
+    runParser parseExpr "1/x" @?= Success "" (BinOp Div (Num 1) (Ident "x"))
+    runParser parseExpr "1^x" @?= Success "" (BinOp Pow (Num 1) (Ident "x"))
+    runParser parseExpr "1==x" @?= Success "" (BinOp Equal (Num 1) (Ident "x"))
+    runParser parseExpr "1/=x" @?= Success "" (BinOp Nequal (Num 1) (Ident "x"))
+    runParser parseExpr "1>x" @?= Success "" (BinOp Gt (Num 1) (Ident "x"))
+    runParser parseExpr "1>=x" @?= Success "" (BinOp Ge (Num 1) (Ident "x"))
+    runParser parseExpr "1<x" @?= Success "" (BinOp Lt (Num 1) (Ident "x"))
+    runParser parseExpr "1<=x" @?= Success "" (BinOp Le (Num 1) (Ident "x"))
+    runParser parseExpr "1&&x" @?= Success "" (BinOp And (Num 1) (Ident "x"))
+    runParser parseExpr "1||x" @?= Success "" (BinOp Or (Num 1) (Ident "x"))
+    runParser parseExpr "(1==x+2)||3*4<y-5/6&&(7/=z^8)||(id>12)&&abc<=13||xyz>=42" @?=
+      runParser parseExpr "(1==(x+2))||(((3*4)<(y-(5/6))&&(7/=(z^8)))||(((id>12)&&(abc<=13))||(xyz>=42)))"
+
+unit_unaryEpxr = do
+    runParser parseExpr "-1+2" @?= Success "" (BinOp Plus (UnaryOp Minus (Num 1)) (Num 2))
+    runParser parseExpr "-1*2" @?= Success "" (BinOp Mult (UnaryOp Minus (Num 1)) (Num 2))
+    runParser parseExpr "-1==2" @?= Success "" (BinOp Equal (UnaryOp Minus (Num 1)) (Num 2))
+    runParser parseExpr "-1==-2" @?= Success "" (BinOp Equal (UnaryOp Minus (Num 1)) (UnaryOp Minus (Num 2)))
+    runParser parseExpr "-1&&-2" @?= Success "" (BinOp And (UnaryOp Minus (Num 1)) (UnaryOp Minus (Num 2)))
+    runParser parseExpr "!1&&!2" @?= Success "" (BinOp And (UnaryOp Not (Num 1)) (UnaryOp Not (Num 2)))
+    runParser parseExpr "-1^2" @?= Success "" (UnaryOp Minus (BinOp Pow (Num 1) (Num 2)))
+    runParser parseExpr "-1^(-2)" @?= Success "" (UnaryOp Minus (BinOp Pow (Num 1) (UnaryOp Minus (Num 2))))
+    runParser parseExpr "(-1)^2" @?= Success "" (BinOp Pow (UnaryOp Minus (Num 1)) (Num 2))
+    runParser parseExpr "-1+-2" @?= Success "" (BinOp Plus (UnaryOp Minus (Num 1)) (UnaryOp Minus (Num 2)))
+    runParser parseExpr "!-1" @?= Success "" (UnaryOp Not (UnaryOp Minus (Num 1)))
+    runParser parseExpr "!(-1)" @?= Success "" (UnaryOp Not (UnaryOp Minus (Num 1)))
+    runParser parseExpr "-(!1)" @?= Success "" (UnaryOp Minus (UnaryOp Not (Num 1)))
+    runParser parseExpr "-1---2" @?= Success "---2" (UnaryOp Minus (Num 1))
+    runParser parseExpr "1^2" @?= Success "" (BinOp Pow (Num 1) (Num 2))
+    runParser parseExpr "-1^2" @?= Success "" (UnaryOp Minus (BinOp Pow (Num 1) (Num 2)))
+    runParser parseExpr "-1^-2" @?= Success "^-2" (UnaryOp Minus (Num 1))
+
+    assertBool "" $ isFailure $ runParser parseExpr "--1"
+    assertBool "" $ isFailure $ runParser parseExpr "-!1"
+
+mult  = stringCompare "*" >>= toOperator
+sum'  = stringCompare "+" >>= toOperator
+minus = stringCompare "-" >>= toOperator
+div'  = stringCompare "/" >>= toOperator
+>>>>>>> HW07
 
 expr1 :: Parser String String AST
 expr1 =
@@ -137,8 +201,15 @@ expr2 =
            BinOp
            UnaryOp
 
+--unit_plusexpr :: Assertion
+--unit_plusexpr = do
+  --runParser plusexpr "13" @?= Success "" (Num 13)
+  --runParser plusexpr "13+12" @?= Success "" (BinOp Plus (Num 13) (Num 12))
+  --runParser plusexpr "13+12+11" @?= Success "+11" (BinOp Plus (Num 13) (Num 12))
+  
 unit_expr1 :: Assertion
 unit_expr1 = do
+<<<<<<< HEAD
   runParser expr1 "13" @?= Success (toStream "" 2) (Num 13)
   runParser expr1 "(((1)))" @?= Success (toStream "" 7) (Num 1)
   runParser expr1 "1+2*3-4/5" @?= Success (toStream "" 9) (BinOp Mult (BinOp Plus (Num 1) (Num 2)) (BinOp Minus (Num 3) (BinOp Div (Num 4) (Num 5))))
@@ -147,6 +218,16 @@ unit_expr1 = do
   runParser expr1 "1/2/3" @?= Success (toStream "" 5) (BinOp Div (Num 1) (BinOp Div (Num 2) (Num 3)))
   runParser expr1 "1-2-3" @?= Success (toStream "" 5) (BinOp Minus (Num 1) (BinOp Minus (Num 2) (Num 3)))
   runParser expr1 "1-2*3/4+5*6-7-8/9" @?= Success (toStream "" 17) (BinOp Mult (BinOp Mult (BinOp Minus (Num 1) (Num 2)) (BinOp Div (Num 3) (BinOp Plus (Num 4) (Num 5)))) (BinOp Minus (Num 6) (BinOp Minus (Num 7) (BinOp Div (Num 8) (Num 9)))))
+=======
+  runParser expr1 "13" @?= Success "" (Num 13)
+  runParser expr1 "(((1)))" @?= Success "" (Num 1)
+  --runParser expr1 "1+2*3-4/5" @?= Success "" (BinOp Mult (BinOp Plus (Num 1) (Num 2)) (BinOp Minus (Num 3) (BinOp Div (Num 4) (Num 5))))
+  runParser expr1 "1+2+3" @?= Success "+3" (BinOp Plus (Num 1) (Num 2))
+  runParser expr1 "1*2*3" @?= Success "" (BinOp Mult (BinOp Mult (Num 1) (Num 2)) (Num 3))
+  runParser expr1 "1/2-3" @?= Success "" (BinOp Div (Num 1) (BinOp Minus (Num 2) (Num 3)))
+  runParser expr1 "1-2-3" @?= Success "" (BinOp Minus (Num 1) (BinOp Minus (Num 2) (Num 3)))
+  runParser expr1 "1-2*3/4+5*6-7-8/9" @?= Success "" (BinOp Mult (BinOp Mult (BinOp Minus (Num 1) (Num 2)) (BinOp Div (Num 3) (BinOp Plus (Num 4) (Num 5)))) (BinOp Minus (Num 6) (BinOp Minus (Num 7) (BinOp Div (Num 8) (Num 9)))))
+>>>>>>> HW07
 
 unit_expr2 :: Assertion
 unit_expr2 = do
