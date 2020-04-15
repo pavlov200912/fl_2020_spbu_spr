@@ -36,8 +36,8 @@ incrPos (InputStream str pos) = InputStream str (pos + 1)
 
 instance Functor (Parser error input) where
   -- fmap :: (a -> b) -> Parser e i a -> Parser e i b
-  fmap f p = Parser $ \input -> 
-    case runParser p input of 
+  fmap f (Parser runp) = Parser $ \input -> 
+    case runp input of 
       Success i x -> Success i (f x)
       Failure e -> Failure e
 
@@ -45,19 +45,19 @@ instance Applicative (Parser error input) where
   -- pure :: a -> Parser e i a
   pure x = Parser $ \input -> Success input x
   -- <*> :: f (a -> b) -> f a -> f b 
-  p <*> q = Parser $ \input ->
-      case runParser p input of
+  (Parser runp) <*> (Parser runq) = Parser $ \input ->
+      case runp input of
         Failure e1   -> Failure e1
-        Success i1 g ->   case runParser q i1 of
+        Success i1 g ->   case runq i1 of
              Failure e2   -> Failure e2
              Success i2 y -> Success i2 (g y)
 
 instance Monad (Parser error input) where
   return = pure
 
-  p >>= f = Parser $ \input -> 
-    case runParser p input of 
-      Success i r -> runParser (f r) i
+  (Parser runp) >>= f = Parser $ \input -> 
+    case runp input of 
+      Success i r -> runParser' (f r) i
       Failure e   -> Failure e
 
 instance Monoid error => Alternative (Parser error input) where

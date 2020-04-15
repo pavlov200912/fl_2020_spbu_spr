@@ -9,9 +9,23 @@ import           LLang            (Configuration (..), LAst (..), eval,
 import           Test.Tasty.HUnit (Assertion, assertBool, (@?=))
 import           Text.Printf      (printf)
 
+import           Test.Tasty.HUnit    (Assertion, (@?=), assertBool)
+
+import           AST                 (AST (..), Operator (..))
+import LLang    (parseFunctionCall, parseDef, parseProg, parseExpr, parseIdent,
+                    parseNum, parseAssign, parseRead, parseIf, 
+                    parseLLang, parseWrite, parseSeq, parseWhile, 
+                    parsePleaseHelpMe, stmt, LAst (..))
+import           Combinators         (Parser (..), Result (..), runParser,
+                                      symbol,  stringCompare)
+
+
+import           Control.Applicative
 -- f x y = read z ; return (x + z * y)
 -- g x = if (x) then return x else return x*13
 -- {read x; read y; write (f x y); write (g x)}"
+
+
 
 prog =
   Program
@@ -155,3 +169,190 @@ unit_stmt4 = do
   eval stmt4 (initialConf [2]) @?= Just (Conf (subst' 2) [] [1])
   eval stmt4 (initialConf [10]) @?= Just (Conf (subst 10 10 55 34 55) [] [55] )
   eval stmt4 (initialConf []) @?= Nothing
+
+unit_parsePleaseHelpMe :: Assertion
+unit_parsePleaseHelpMe = do 
+    assertParser parsePleaseHelpMe "please "  ""
+    assertParser parsePleaseHelpMe "please()"  ""
+    assertParser parsePleaseHelpMe "please(x)"  ""
+    assertParser parsePleaseHelpMe "please;" ""
+    assertParser (many parsePleaseHelpMe) "please;help;me;" ["", "", ""]
+
+assertParser :: (Eq a, Show a) => Parser String String a -> String -> a -> Assertion
+assertParser p str a = do
+  runParser p str @?= Success (toStream "" (length str)) a 
+
+
+isFailure (Failure _) = True
+isFailure  _          = False
+
+unit_parseIdent :: Assertion
+unit_parseIdent = do
+    assertBool "" $ isFailure $ runParser parseIdent "123abc"
+    assertBool "" $ isFailure $ runParser parseIdent "123"
+    assertBool "" $ isFailure $ runParser parseIdent ""
+    assertBool "" $ isFailure $ runParser parseIdent "_123"
+    assertBool "" $ isFailure $ runParser parseIdent "_"
+
+
+unit_parseNum :: Assertion
+unit_parseNum = do
+    assertParser parseNum "7"  7
+    assertParser parseNum "12" 12
+    assertParser parseNum "007" 7
+    assertParser parseNum "0.123" 123
+    assertParser parseNum "124.124" 124124
+    assertBool "" $ isFailure (runParser parseNum "+3")
+    assertBool "" $ isFailure (runParser parseNum "a")
+
+
+unit_parseAssign :: Assertion
+unit_parseAssign = do
+    assertParser parseAssign "ident := 123;"  (Assign "ident" (Num 123))
+    assertParser parseAssign "kek123 := 12*2;" (Assign "kek123" (BinOp Mult (Num 12) (Num 2)))
+    assertParser parseAssign "    ident~ :=    12;" (Assign "ident~" (Num 12))
+    assertBool "" $ isFailure (runParser parseAssign " esle := 123;")
+    assertBool "" $ isFailure (runParser parseAssign " poka := 123;")
+    assertBool "" $ isFailure (runParser parseAssign " ident := 12 3;")
+    assertBool "" $ isFailure (runParser parseAssign " ident := 123")
+    assertBool "" $ isFailure (runParser parseAssign " ident:= 123")
+    assertBool "" $ isFailure (runParser parseAssign " ident :=123")
+   
+unit_parseWhile :: Assertion
+unit_parseWhile = do
+    assertParser parseWhile " poka (x>0) {};"  (While (BinOp Gt (Ident "x") (Num 0)) (Seq []))
+    assertParser parseWhile " poka (x==0) {x := x+1; print(x);};"  
+        (While (BinOp Equal (Ident "x") (Num 0))
+         (Seq [Assign "x" (BinOp Plus (Ident "x") (Num 1)), Write $ Ident "x"]))
+    assertParser parseWhile "poka (koronavirus==1) {print(stay~at~home);};"
+          (While (BinOp Equal (Ident "koronavirus") (Num 1)) (Seq [Write $ Ident "stay~at~home"]))
+    assertBool "" $ isFailure (runParser parseWhile "poka (x==0) {x := x+1; print(x);}")
+    assertBool "" $ isFailure (runParser parseWhile "poka (x!=0) {x := x+1; print(x);};")
+
+unit_parseWrite :: Assertion
+unit_parseWrite = do
+    assertParser parseWrite "print(123+2);"  (Write $ BinOp Plus (Num 123) (Num 2))
+    assertParser parseWrite "print(hello~world);" (Write $ Ident "hello~world")
+    assertParser parseWrite "print(0);"(Write $ Num 0)
+    assertBool "" $ isFailure (runParser parseWrite "print(1+esle);")
+    assertBool "" $ isFailure (runParser parseWrite "print( 1);")
+    assertBool "" $ isFailure (runParser parseWrite "print(123)")
+    assertBool "" $ isFailure (runParser parseWrite "pritn(123);")
+
+unit_parseRead :: Assertion
+unit_parseRead = do
+    assertParser parseRead "read(x123);" (Read "x123")
+    assertParser parseRead "read(hello~world);"  (Read "hello~world")
+    assertBool "" $ isFailure (runParser parseRead "read(0);")
+    assertBool "" $ isFailure (runParser parseRead "read(esle);")
+    assertBool "" $ isFailure (runParser parseRead "raed(x);")
+    assertBool "" $ isFailure (runParser parseRead "read(y)")
+    assertBool "" $ isFailure (runParser parseRead "read(x_y);")
+
+unit_parseSeq :: Assertion
+unit_parseSeq = do 
+    assertParser parseSeq "{}" (Seq [])
+    assertParser parseSeq "{      }"  (Seq [])
+    assertParser parseSeq "{x := 1;}" (Seq [Assign "x" (Num 1)])
+    assertParser parseSeq "{x := 1;x := 2;}" (Seq [Assign "x" (Num 1), Assign "x" (Num 2)])
+    assertParser parseSeq "{read(x); print(12);}" (Seq [Read "x", Write $ Num 12])
+    assertParser parseSeq "{esle (0) then {} else {};}"  (Seq [If (Num 0) (Seq []) (Seq [])])
+    assertParser parseSeq "{esle (0) then {} else {};  print(12);  read(x);  }" (Seq [If (Num 0) (Seq []) (Seq []), Write $ Num 12, Read "x"])
+
+unit_parseIf :: Assertion
+unit_parseIf = do
+    assertParser parseIf "esle (0) then {} else {};"  (If (Num 0) (Seq []) (Seq []))
+    assertParser parseIf "esle (x==0) then {print(x);} else {read(x);};"  (If (BinOp Equal (Ident "x") (Num 0)) (Seq [Write $ Ident "x"]) (Seq [Read "x"]))
+    assertBool "" $ isFailure (runParser parseRead "else (0) then {} else {};")
+    assertBool "" $ isFailure (runParser parseRead "esle (0) then {} else {}")
+    assertBool "" $ isFailure (runParser parseRead "esle (0) then {} esle {}")
+    assertBool "" $ isFailure (runParser parseRead "esle (0) then print(0); else {};")
+
+unit_parseLLang :: Assertion
+unit_parseLLang = do
+    assertParser parseLLang 
+            "{ \
+               \ read(x); \
+               \ esle (x>13) \
+               \ then { \ 
+               \     print(x); \
+               \     please help me \
+               \ } \
+               \ else { \
+               \     poka (x<42) { \
+               \         x := x*7; \
+               \         print(x);\ 
+               \     };\ 
+               \ }; \
+            \}" stmt
+    assertParser parseLLang "{read(x);print(xplease);}" (Seq [Read "x", Write (Ident "xplease")])
+
+    assertParser parseLLang "{ please help me }"  (Seq [])
+
+    assertParser parseLLang "{ please(x) me help please read(x);please help }" (Seq [Read "x"])
+
+    assertParser parseLLang "{read(x);please }" (Seq [Read "x"])
+
+    assertParser parseLLang "{read(x);please;}" (Seq [Read "x"])
+    
+    assertParser parseLLang "{read(x);please}" (Seq [Read "x"])
+
+    assertParser parseLLang "{read(x);please;help}" (Seq [Read "x"])
+
+    assertParser parseLLang "{read(x);please(x)}"  (Seq [Read "x"])
+
+
+unit_parseFunctionCall :: Assertion
+unit_parseFunctionCall = do
+  assertParser parseFunctionCall "func()" (FunctionCall "func" [])
+  assertParser parseFunctionCall "func(1, 2, 3)" (FunctionCall "func" [Num 1, Num 2, Num 3])
+  assertParser parseFunctionCall "func(fib(15))" (FunctionCall "func" [FunctionCall "fib" [Num 15]])
+
+unit_parseDef :: Assertion
+unit_parseDef = do 
+  assertParser parseDef "fun kek() {};" (Function "kek" [] (Seq []))
+  assertParser parseDef "fun kek(x1) {};" (Function "kek" ["x1"] (Seq []))
+  assertParser parseDef "fun kek(x1, x2) {};" (Function "kek" ["x1", "x2"] (Seq []))
+  assertParser parseDef "fun kek(x1, x2   , x3   ) {};" (Function "kek" ["x1", "x2", "x3"] (Seq []))
+  assertParser parseDef "fun kek(x) {print(x); please help me return 1;};" (Function "kek" ["x"] (Seq [Write (Ident "x"), Return (Num 1)]))
+  assertParser parseDef "fun succ(x) {return x+1;};" (Function "succ" ["x"] (Seq [Return (BinOp Plus (Ident "x") (Num 1))]))
+  assertParser parseDef ("fun fib(n) \
+                                \{ \
+                                \ esle (n==1||n==0) \ 
+                                \ then {return 1;} \
+                                \ else {return fib(n-1)+fib(n-2);}; \
+                                \};") (Function "fib" ["n"] (Seq [
+                                  If (BinOp Or (BinOp Equal (Ident "n") (Num 1)) (BinOp Equal (Ident "n") (Num 0))) 
+                                  (Seq [Return (Num 1)]) (Seq [Return (BinOp Plus (
+                                    FunctionCall "fib" [BinOp Minus (Ident "n") (Num 1)]
+                                  ) (
+                                    FunctionCall "fib" [BinOp Minus (Ident "n") (Num 2)]
+                                  ))])
+                                ])) 
+
+unit_parseProg :: Assertion
+unit_parseProg = do
+  assertParser parseProg "{read(x);print(xplease);}" (Program [] (Seq [Read "x", Write (Ident "xplease")]))
+ 
+  assertParser parseProg "fun succ(x) {return x+1;}; {x := 0; read(x); return succ(x);}"  (Program [Function "succ" ["x"] (Seq [Return (BinOp Plus (Ident "x") (Num 1))])] (Seq [Assign "x" (Num 0), Read "x", 
+      Return (FunctionCall "succ" [Ident "x"])]))
+  assertParser parseProg  
+                "fun fib(n) \
+                    \{ \
+                    \ esle (n==1||n==0) \ 
+                    \ then {return 1;} \
+                    \ else {return fib(n-1)+fib(n-2);}; \
+                    \}; \
+              \ { \
+              \ read(x); \
+              \ return fib(x); \
+              \ }"
+                (Program [(Function "fib" ["n"] (Seq [
+                                  If (BinOp Or (BinOp Equal (Ident "n") (Num 1)) (BinOp Equal (Ident "n") (Num 0))) 
+                                  (Seq [Return (Num 1)]) (Seq [Return (BinOp Plus (
+                                    FunctionCall "fib" [BinOp Minus (Ident "n") (Num 1)]
+                                  ) (
+                                    FunctionCall "fib" [BinOp Minus (Ident "n") (Num 2)]
+                                  ))])
+                                ])) ] 
+                (Seq [Read "x", Return (FunctionCall "fib" [Ident "x"])]))

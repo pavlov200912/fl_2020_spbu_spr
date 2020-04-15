@@ -5,7 +5,7 @@ import           Data.Char           (digitToInt, isDigit)
 import qualified Data.Map            as Map
 import           AST         (Subst(..), AST (..), Operator (..))
 import           Combinators (Parser (..), Result (..), elem', elemSome', fail',
-                             satisfy, success, sepBy1, symbol, stringCompare, satisfySome,
+                             satisfy, success,  symbol, stringCompare, satisfySome,
                              runParser, stream)
 import           Data.Function
 

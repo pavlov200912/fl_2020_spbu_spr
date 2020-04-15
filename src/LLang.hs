@@ -4,8 +4,8 @@ import           AST         (AST (..), Operator (..), Subst (..))
 import           Data.List   (intercalate)
 import qualified Data.Map    as Map
 import           Text.Printf (printf)
-import           Combinators (Parser (..), Result (..), elem', elemSome', fail',
-                      satisfy, success, sepBy1, symbol, stringCompare, satisfySome)
+import           Combinators (makeError, curPos, InputStream (..), ErrorMsg (..), Parser (..), Result (..), elem', elemSome', fail',
+                      satisfy, success,  symbol, stringCompare, satisfySome)
 import           Expr (OpType (..), Associativity (..), uberExpr, toOperator, evalExpr)
 import           Control.Applicative
 import           Data.Char   (digitToInt, isDigit)
@@ -21,9 +21,9 @@ type Var = String
 data Configuration = Conf { subst :: Subst, input :: [Int], output :: [Int] }
                    deriving (Show, Eq)
 
-data Program = Program { functions :: [Function], main :: LAst }
+data Program = Program { functions :: [Function], main :: LAst } deriving Eq
 
-data Function = Function { name :: String, args :: [Var], funBody :: LAst }
+data Function = Function { name :: String, args :: [Var], funBody :: LAst } deriving Eq
 
 data LAst
   = If { cond :: Expr, thn :: LAst, els :: LAst }
@@ -81,10 +81,31 @@ parseExpr = uberExpr [
                       (mult' <|> div', Binary LeftAssoc),
                       (pow', Binary RightAssoc)
                      ]
-                     (Num <$> parseNum <|> Ident <$> parseIdent <|> symbol '(' *> parseExpr <* symbol ')')
+                     (Num <$> parseNum <|> 
+                     parseFunctionCall <|> 
+                     Ident <$> parseIdent <|> 
+                     symbol '(' *> parseExpr <* symbol ')')
                      BinOp
                      UnaryOp
 
+parseFunctionCall :: Parser String String AST
+parseFunctionCall = do
+                    name <- parseIdent
+                    symbol '('
+                    params <- parseParams <|> return []
+                    symbol ')' 
+                    return $ FunctionCall name params
+                where
+                parseExprSpaces = do
+                                  parseManySpaces
+                                  expr <- parseExpr
+                                  parseManySpaces
+                                  return $ expr
+                parseParams :: Parser String String [AST]  
+                parseParams = do
+                              top   <- parseExprSpaces
+                              other <- many (symbol ',' *> parseExprSpaces)
+                              return (top:other) 
 
 parseSomeSpaces :: Parser String String String
 parseSomeSpaces = some (symbol ' ' <|> symbol '\n')
@@ -92,24 +113,26 @@ parseSomeSpaces = some (symbol ' ' <|> symbol '\n')
 parseManySpaces = many (symbol ' ' <|> symbol '\n')
 
 -- keywords that shouldn't be parsed like Var
-indentKeywords = ["esle", "poka", "read", "print", "please", "help", "me"]
+indentKeywords = ["esle", "poka", "read", "print", "please", "help", "me", "fun"]
 
--- please help me - блок обязан быть отделен пробелами от другого кода
 parsePleaseHelpMe :: Parser String String String
 parsePleaseHelpMe = do
-                    parseSomeSpaces
-                    parsePleaseBlock
+                    parseManySpaces
+                    keywordsParser
+                    parseSomeSpaces <|> parseBrackets <|> stringCompare ";" <|> parseSeqEnd
                     return ""
                     where
   keywordsParser = stringCompare "please" <|> stringCompare "help" <|> stringCompare "me"
-  parsePleaseBlock = do
-                     keywordsParser
-                     many (do 
-                       parseSomeSpaces
-                       keywordsParser
-                       return "")
-                     return "" 
-
+  parseBrackets = (stringCompare "()") <|> (do
+                                            symbol '('
+                                            parseExpr
+                                            symbol ')'
+                                            return "")
+  parseSeqEnd = Parser $ helper where
+    helper :: InputStream String -> Result String String String
+    helper input@(InputStream ('}':xs) n) = Success input ""
+    helper input = Failure [makeError mempty (curPos input)]
+ 
 parseIf :: Parser String String LAst
 parseIf = do
           parseManySpaces
@@ -176,8 +199,16 @@ parseWrite = do
               symbol ';'
               return $ Write expr
 
+parseReturn :: Parser String String LAst
+parseReturn = do
+              parseManySpaces
+              stringCompare "return"
+              parseSomeSpaces
+              expr <- parseExpr
+              symbol ';'
+              return $ Return expr
 
-
+ 
 parseSeq :: Parser String String LAst
 parseSeq = do
            parseManySpaces
@@ -190,7 +221,7 @@ parseSeq = do
 
 parseInstruction = do
                    many parsePleaseHelpMe 
-                   parseAssign <|> parseIf <|> parseWhile <|> parseRead <|> parseWrite
+                   parseAssign <|> parseIf <|> parseWhile <|> parseRead <|> parseWrite <|> parseReturn
 
 parseLLang :: Parser String String LAst
 parseLLang = do 
@@ -218,11 +249,41 @@ parseL :: Parser String String LAst
 parseL = parseLLang
 
 
-parseDef :: Parser String String Function
-parseDef = error "parseDef undefined"
+parseArgs :: Parser String String [Var]
+parseArgs = do
+            top <- parseIdentSpaces
+            other <- many (symbol ',' *> parseIdentSpaces)
+            return (top:other)
+      where
+      parseIdentSpaces = do
+        parseManySpaces
+        ident <- parseIdent
+        parseManySpaces
+        return ident           
 
-parseProg :: Parser String String Prog
-parseProg = error "parseProg undefined"
+parseDef :: Parser String String Function
+parseDef = do
+           parseManySpaces
+           stringCompare "fun"
+           parseSomeSpaces
+           name <- parseIdent
+           symbol '('
+           args <- parseArgs <|> return []
+           symbol ')'
+           parseManySpaces
+           body <- parseSeq
+           symbol ';'
+           parseManySpaces
+           return $ Function name args body
+
+
+parseProg :: Parser String String Program
+parseProg = do
+            parseManySpaces
+            functions <- many parseDef
+            parseManySpaces
+            main <- parseLLang
+            return $ Program functions main
 
 initialConf :: [Int] -> Configuration
 initialConf input = Conf Map.empty input []
