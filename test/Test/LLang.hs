@@ -16,7 +16,7 @@ import LLang    (parseFunctionCall, parseDef, parseProg, parseExpr, parseIdent,
                     parseNum, parseAssign, parseRead, parseIf, 
                     parseLLang, parseWrite, parseSeq, parseWhile, 
                     parsePleaseHelpMe, stmt, LAst (..), Program (..), Function (..))
-import           Combinators         (toStream, Parser (..), Result (..), runParser,
+import           Combinators         (Position (..), InputStream (..), toStream, Parser (..), Result (..), runParser,
                                       symbol,  stringCompare)
 
 
@@ -200,6 +200,10 @@ assertParser p str a = do
   runParser p str @?= Success (toStream "" (length str)) a 
 
 
+assertPosParser :: (Eq a, Show a) => Parser String String a -> String -> a -> (Int, Int) -> Assertion 
+assertPosParser p str a (x, y) = do
+    runParser p str @?= Success (InputStream str (Position x y)) a
+
 isFailure (Failure _) = True
 isFailure  _          = False
 
@@ -332,52 +336,50 @@ unit_parseDef = do
   assertParser parseDef "fun kek(x1, x2) {return 0;};" (Function "kek" ["x1", "x2"] (Seq []) (Num 0))
   assertParser parseDef "fun kek(x1, x2   , x3   ) {return 0;};" (Function "kek" ["x1", "x2", "x3"] (Seq []) (Num 0))
   assertParser parseDef "fun kek(x) {print(x); please help me return 1;};" (Function "kek" ["x"] (Seq [Write (Ident "x")]) (Num 1))
-  --assertParser parseDef "fun succ(x) {return x+1;};" (Function "succ" ["x"] (Seq []) (BinOp Plus (Ident "x") (Num 1)))
-  --assertParser parseDef ("fun fib(n) \
-  --                              \{ \
-  --                              \ esle (n==1||n==0) \ 
-  --                              \ then {return 1;} \
-  --                              \ else {return fib(n-1)+fib(n-2);}; \
-  --                              \};") (Function "fib" ["n"] (Seq [
-  --                                If (BinOp Or (BinOp Equal (Ident "n") (Num 1)) (BinOp Equal (Ident "n") (Num 0))) 
-  --                                (Seq []) (Seq [Return (BinOp Plus (
-  --                                  FunctionCall "fib" [BinOp Minus (Ident "n") (Num 1)]
-  --                                ) (
-  --                                  FunctionCall "fib" [BinOp Minus (Ident "n") (Num 2)]
-  --                                ))])
-  --                              ])) 
+  assertParser parseDef "fun succ(x) {return x+1;};" (Function "succ" ["x"] (Seq []) (BinOp Plus (Ident "x") (Num 1)))
+  assertParser parseDef ("fun fib(n) \
+                                \{ \
+                                \ ret := 0; \
+                                \ esle (n==1||n==0) \ 
+                                \ then {ret := 1;} \
+                                \ else {ret := fib(n-1)+fib(n-2);}; \
+                                \ return ret; \
+                                \};") (Function "fib" ["n"] (Seq [
+                                    Assign "ret" (Num 0), 
+                                  If (BinOp Or (BinOp Equal (Ident "n") (Num 1)) (BinOp Equal (Ident "n") (Num 0))) 
+                                  (Seq [Assign "ret" (Num 1)]) (Seq [Assign "ret" (BinOp Plus (
+                                    FunctionCall "fib" [BinOp Minus (Ident "n") (Num 1)]
+                                  ) (
+                                    FunctionCall "fib" [BinOp Minus (Ident "n") (Num 2)]
+                                  ))])
+                                ]) (Ident "ret")) 
 --
 unit_parseProg :: Assertion
 unit_parseProg = do
   assertParser parseProg "{read(x);print(xplease);}" (Program [] (Seq [Read "x", Write (Ident "xplease")]))
  
-  --assertParser parseProg "fun succ(x) {return x+1;}; {x := 0; read(x); return succ(x);}"  (Program [Function "succ" ["x"] (Seq [Return (BinOp Plus (Ident "x") (Num 1))])] (Seq [Assign "x" (Num 0), Read "x", 
-  --    Return (FunctionCall "succ" [Ident "x"])]))
-  --assertParser parseProg  
-  --              "fun fib(n) \
-  --                  \{ \
-  --                  \ esle (n==1||n==0) \ 
-  --                  \ then {return 1;} \
-  --                  \ else {return fib(n-1)+fib(n-2);}; \
-  --                  \}; \
-  --            \ { \
-  --            \ read(x); \
-  --            \ return fib(x); \
-  --            \ }"
-  --              (Program [(Function "fib" ["n"] (Seq [
-  --                                If (BinOp Or (BinOp Equal (Ident "n") (Num 1)) (BinOp Equal (Ident "n") (Num 0))) 
-  --                                (Seq [Return (Num 1)]) (Seq [Return (BinOp Plus (
-  --                                  FunctionCall "fib" [BinOp Minus (Ident "n") (Num 1)]
-  --                                ) (
-  --                                  FunctionCall "fib" [BinOp Minus (Ident "n") (Num 2)]
-  --                                ))])
-  --                              ])) ] 
-  --              (Seq [Read "x", Return (FunctionCall "fib" [Ident "x"])]))
--- unit_stmt4 :: Assertion
--- unit_stmt4 = do
---   let subst n i cur prev temp = Map.fromList [("n", n), ("i", i), ("cur", cur), ("prev", prev), ("temp", temp)]
---   let subst' n = Map.fromList [("n", n)]
---   eval stmt4 (initialConf [1]) @?= Just (Conf (subst' 1) [] [1])
---   eval stmt4 (initialConf [2]) @?= Just (Conf (subst' 2) [] [1])
---   eval stmt4 (initialConf [10]) @?= Just (Conf (subst 10 10 55 34 55) [] [55] )
---   eval stmt4 (initialConf []) @?= Nothing
+  assertParser parseProg "fun succ(x) {return x+1;}; {x := 0; read(x); print(succ(x));}"  (Program [Function "succ" ["x"] (Seq []) ((BinOp Plus (Ident "x") (Num 1)))] (Seq [Assign "x" (Num 0), Read "x", 
+      Write (FunctionCall "succ" [Ident "x"])]))
+  assertParser parseProg  
+                "fun fib(n) \
+                    \{ \
+                    \ ret := 0; \
+                    \ esle (n==1||n==0) \ 
+                    \ then {ret := 1;} \
+                    \ else {ret := fib(n-1)+fib(n-2);}; \
+                    \ return ret; \
+                    \}; \
+              \ { \
+              \ read(x); \
+              \ print(fib(x)); \
+              \ }"
+                (Program [(Function "fib" ["n"] (Seq [
+                                    Assign "ret" (Num 0), 
+                                  If (BinOp Or (BinOp Equal (Ident "n") (Num 1)) (BinOp Equal (Ident "n") (Num 0))) 
+                                  (Seq [Assign "ret" (Num 1)]) (Seq [Assign "ret" (BinOp Plus (
+                                    FunctionCall "fib" [BinOp Minus (Ident "n") (Num 1)]
+                                  ) (
+                                    FunctionCall "fib" [BinOp Minus (Ident "n") (Num 2)]
+                                  ))])
+                                ]) (Ident "ret"))  ] 
+                (Seq [Read "x", Write (FunctionCall "fib" [Ident "x"])]))
