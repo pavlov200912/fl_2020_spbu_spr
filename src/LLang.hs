@@ -201,14 +201,14 @@ parseWrite = do
               symbol ';'
               return $ Write expr
 
-parseReturn :: Parser String String LAst
+parseReturn :: Parser String String AST
 parseReturn = do
               parseManySpaces
               stringCompare "return"
               parseSomeSpaces
               expr <- parseExpr
               symbol ';'
-              return $ Return expr
+              return expr
 
  
 parseSeq :: Parser String String LAst
@@ -223,7 +223,19 @@ parseSeq = do
 
 parseInstruction = do
                    many parsePleaseHelpMe 
-                   parseAssign <|> parseIf <|> parseWhile <|> parseRead <|> parseWrite <|> parseReturn
+                   parseAssign <|> parseIf <|> parseWhile <|> parseRead <|> parseWrite
+
+parseSeqInFunction :: Parser String String (LAst, AST)
+parseSeqInFunction = do
+           parseManySpaces
+           symbol '{'
+           list <- many (parseInstruction)
+           many parsePleaseHelpMe
+           parseManySpaces
+           expr <- parseReturn
+           parseManySpaces
+           symbol '}'
+           return $ (Seq list, expr)
 
 parseLLang :: Parser String String LAst
 parseLLang = do 
@@ -273,10 +285,10 @@ parseDef = do
            args <- parseArgs <|> return []
            symbol ')'
            parseManySpaces
-           body <- parseSeq
+           (body, returnExpr) <- parseSeqInFunction
            symbol ';'
            parseManySpaces
-           return $ Function name args body
+           return $ Function name args body returnExpr
 
 
 parseProg :: Parser String String Program
@@ -288,7 +300,7 @@ parseProg = do
             return $ Program functions main
 
 initialConf :: [Int] -> Configuration
-initialConf input = Conf Map.empty input []
+initialConf input = Conf Map.empty input [] Map.empty
 
 instance Show Function where
   show (Function name args funBody returnExpr) =
@@ -323,34 +335,35 @@ ident = (+1)
 identation n = if n > 0 then printf "%s|_%s" (concat $ replicate (n - 1) "| ") else id
 
 
-
-eval (If cond thn els) conf@(Conf subst input output) = do
-                                                cond_res <- evalExpr subst cond
-                                                if (cond_res == 0) then
-                                                  eval els conf
-                                                else
-                                                  eval thn conf
-
-eval while@(While cond body) conf@(Conf subst input output) = do
-                                                cond_res <- evalExpr subst cond
-                                                if (cond_res == 0) then
-                                                  return conf
-                                                else
-                                                  do 
-                                                  body_res <- eval body conf
-                                                  eval while body_res
-eval (Assign var expr) conf@(Conf subst input output) = do
-                                                        expr_res <- evalExpr subst expr
-                                                        return $ Conf (Map.insert var expr_res subst) input output 
-eval (Read var) conf@(Conf subst [] output) = Nothing 
-eval (Read var) conf@(Conf subst (token:input) output) = return $ Conf (Map.insert var token subst) input output 
-
-eval (Write expr) conf@(Conf subst input output) = do 
-                                                   expr_res <- evalExpr subst expr
-                                                   return $ Conf subst input (expr_res:output)
-
-eval (Seq []) conf = Just conf  
-eval (Seq (x:xs)) conf = do
-                         first <- eval x conf
-                         eval (Seq xs) first  
-
+--
+--eval (If cond thn els) conf@(Conf subst input output) = do
+--                                                cond_res <- evalExpr subst cond
+--                                                if (cond_res == 0) then
+--                                                  eval els conf
+--                                                else
+--                                                  eval thn conf
+--
+--eval while@(While cond body) conf@(Conf subst input output) = do
+--                                                cond_res <- evalExpr subst cond
+--                                                if (cond_res == 0) then
+--                                                  return conf
+--                                                else
+--                                                  do 
+--                                                  body_res <- eval body conf
+--                                                  eval while body_res
+--eval (Assign var expr) conf@(Conf subst input output) = do
+--                                                        expr_res <- evalExpr subst expr
+--                                                        return $ Conf (Map.insert var expr_res subst) input output 
+--eval (Read var) conf@(Conf subst [] output) = Nothing 
+--eval (Read var) conf@(Conf subst (token:input) output) = return $ Conf (Map.insert var token subst) input output 
+--
+--eval (Write expr) conf@(Conf subst input output) = do 
+--                                                   expr_res <- evalExpr subst expr
+--                                                   return $ Conf subst input (expr_res:output)
+--
+--eval (Seq []) conf = Just conf  
+--eval (Seq (x:xs)) conf = do
+--                         first <- eval x conf
+--                         eval (Seq xs) first  
+--
+--
