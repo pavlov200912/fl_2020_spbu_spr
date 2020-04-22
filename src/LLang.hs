@@ -6,7 +6,7 @@ import qualified Data.Map    as Map
 import           Text.Printf (printf)
 import           Combinators (makeError, curPos, InputStream (..), ErrorMsg (..), Parser (..), Result (..), elem', elemSome', fail',
                       satisfy, success,  symbol, stringCompare, satisfySome)
-import           Expr (OpType (..), Associativity (..), uberExpr, toOperator, evalExpr)
+import           Expr (evalOperator, OpType (..), Associativity (..), uberExpr, toOperator)
 import           Control.Applicative
 import           Data.Char   (digitToInt, isDigit)
 import           Control.Monad
@@ -110,9 +110,9 @@ parseFunctionCall = do
                               return (top:other) 
 
 parseSomeSpaces :: Parser String String String
-parseSomeSpaces = some (symbol ' ' <|> symbol '\n')
+parseSomeSpaces = some (symbol ' ' <|> symbol '\n' <|> symbol '\t')
 
-parseManySpaces = many (symbol ' ' <|> symbol '\n')
+parseManySpaces = many (symbol ' ' <|> symbol '\n' <|> symbol '\t')
 
 -- keywords that shouldn't be parsed like Var
 indentKeywords = ["esle", "poka", "read", "print", "please", "help", "me", "fun"]
@@ -335,35 +335,75 @@ ident = (+1)
 identation n = if n > 0 then printf "%s|_%s" (concat $ replicate (n - 1) "| ") else id
 
 
---
---eval (If cond thn els) conf@(Conf subst input output) = do
---                                                cond_res <- evalExpr subst cond
---                                                if (cond_res == 0) then
---                                                  eval els conf
---                                                else
---                                                  eval thn conf
---
---eval while@(While cond body) conf@(Conf subst input output) = do
---                                                cond_res <- evalExpr subst cond
---                                                if (cond_res == 0) then
---                                                  return conf
---                                                else
---                                                  do 
---                                                  body_res <- eval body conf
---                                                  eval while body_res
---eval (Assign var expr) conf@(Conf subst input output) = do
---                                                        expr_res <- evalExpr subst expr
---                                                        return $ Conf (Map.insert var expr_res subst) input output 
---eval (Read var) conf@(Conf subst [] output) = Nothing 
---eval (Read var) conf@(Conf subst (token:input) output) = return $ Conf (Map.insert var token subst) input output 
---
---eval (Write expr) conf@(Conf subst input output) = do 
---                                                   expr_res <- evalExpr subst expr
---                                                   return $ Conf subst input (expr_res:output)
---
---eval (Seq []) conf = Just conf  
---eval (Seq (x:xs)) conf = do
---                         first <- eval x conf
---                         eval (Seq xs) first  
---
---
+evalFunction :: Configuration -> Function -> [Int] -> Maybe (Configuration, Int)
+evalFunction y@(Conf subst input output defs) (Function _ args (Seq instructions) ret) vals = do
+                                            guard (length args == length vals)
+                                            new_subst <- return $ Map.fromList $ zip args vals
+                                            new_conf <- return $ Conf new_subst input output defs 
+                                            new_seq <- return $ Seq $ instructions ++ [Write ret]
+                                            (Conf _ input' (result:output') _ ) <- eval new_seq new_conf
+                                            return $ (Conf subst input' output' defs, result)
+
+evalFunction y (Function name args (instructions) ret) vals = 
+  evalFunction y (Function name args (Seq [instructions]) ret) vals
+
+evalExpr :: Configuration -> AST -> Maybe (Configuration, Int)
+evalExpr c (Num x) = Just (c, x)
+evalExpr c (BinOp op l r) = do
+                                (c', left) <- evalExpr c l 
+                                (c'', right) <- evalExpr c' r
+                                return $ (c'', evalOperator op left right)
+evalExpr c (UnaryOp op l) = do
+                                (c', left) <- evalExpr c l 
+                                return $ (c', evalOperator op 0 left)
+evalExpr c@(Conf subst _ _ _) (Ident x) = do
+                                          ide <- Map.lookup x subst
+                                          return $ (c, ide) 
+
+evalExpr conf@(Conf subst _ _ def) (FunctionCall name args) = 
+  let get_arg arg expr = do
+            (c,   xs) <- arg
+            (c', res) <- evalExpr c expr
+            return $ (c', xs ++ [res])
+      vals_res = foldl get_arg (Just (conf, [])) args
+  in do
+     (conf'@(Conf s _ _ d), vals) <- vals_res
+     function <- Map.lookup name def
+     (Conf _ i o d, result) <- evalFunction conf' function vals
+     return $ (Conf s i o d, result) 
+
+
+
+
+
+
+eval (If cond thn els) conf@(Conf subst input output def) = do
+                                                (conf', cond_res) <- evalExpr conf cond 
+                                                if (cond_res == 0) then
+                                                  eval els conf'
+                                                else
+                                                  eval thn conf'
+
+eval while@(While cond body) conf@(Conf subst input output def) = do
+                                                (conf', cond_res) <- evalExpr conf cond 
+                                                if (cond_res == 0) then
+                                                  return conf'
+                                                else
+                                                  do 
+                                                  body_res <- eval body conf'
+                                                  eval while body_res
+eval (Assign var expr) conf@(Conf subst input output def) = do
+                                                        (Conf s i o d, expr_res) <- evalExpr conf expr 
+                                                        return $ Conf (Map.insert var expr_res s) i o d
+eval (Read var) conf@(Conf subst [] output def) = Nothing 
+eval (Read var) conf@(Conf subst (token:input) output def) = return $ Conf (Map.insert var token subst) input output def
+
+eval (Write expr) conf@(Conf subst input output def) = do 
+                                                   (Conf s i o d, expr_res) <- evalExpr conf expr
+                                                   return $ Conf s i (expr_res:o) d
+
+eval (Seq []) conf = Just conf  
+eval (Seq (x:xs)) conf = do
+                         first <- eval x conf
+                         eval (Seq xs) first  
+

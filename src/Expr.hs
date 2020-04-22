@@ -40,16 +40,6 @@ evalOperator Minus x y = x-y
 
 
 
-evalExpr :: Subst -> AST -> Maybe Int
-evalExpr _ (Num x) = Just x
-evalExpr subst (BinOp op l r) = do
-                                left <- evalExpr subst l 
-                                right <- evalExpr subst r
-                                return $ evalOperator op left right
-evalExpr subst (UnaryOp op l) = do
-                                left <- evalExpr subst l 
-                                return $ evalOperator op 0 left
-evalExpr subst (Ident x) = Map.lookup x subst
 
 uberExpr :: Monoid e
          => [(Parser e i op, OpType)] -- список операций с их арностью и, в случае бинарных, ассоциативностью
