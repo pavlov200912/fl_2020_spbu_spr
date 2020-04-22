@@ -66,7 +66,7 @@ unit_parseIdent = do
     testFailure $ runParser parseIdent ""
 
 erasePosition :: Result e i a -> Result e i a
-erasePosition (Success str x) = Success (InputStream (stream str) (0)) x
+erasePosition (Success str x) = Success (InputStream (stream str) (Position 0 0)) x
 erasePosition x               = x
 
 unit_parseExpr :: Assertion
@@ -121,48 +121,47 @@ sum'  = word "+" *> return Plus
 minus = word "-" *> return Minus
 div'  = word "/" *> return Div
 
---expr1 :: Parser String String AST
---expr1 =
---  uberExpr [ (mult, Binary LeftAssoc)
---           , (minus <|> div', Binary RightAssoc)
---           , (sum', Binary NoAssoc)
---           ]
---           ((Num <$> parseNum) <|> symbol '(' *> expr1 <* symbol ')')
---           BinOp
---           UnaryOp
---
---expr2 :: Parser String String AST
---expr2 =
---  uberExpr [(mult <|> div' <|> minus <|> sum', Binary LeftAssoc)]
---           (Num <$> parseNum)
---           BinOp
---           UnaryOp
---
-----unit_plusexpr :: Assertion
-----unit_plusexpr = do
---  --runParser plusexpr "13" @?= Success "" (Num 13)
---  --runParser plusexpr "13+12" @?= Success "" (BinOp Plus (Num 13) (Num 12))
---  --runParser plusexpr "13+12+11" @?= Success "+11" (BinOp Plus (Num 13) (Num 12))
---  
---unit_expr1 :: Assertion
---unit_expr1 = do
---  runParser expr1 "13" @?= Success (toStream "" 2) (Num 13)
---  runParser expr1 "(((1)))" @?= Success (toStream "" 7) (Num 1)
---  runParser expr1 "1+2*3-4/5" @?= Success (toStream "" 9) (BinOp Mult (BinOp Plus (Num 1) (Num 2)) (BinOp Minus (Num 3) (BinOp Div (Num 4) (Num 5))))
---  runParser expr1 "1+2+3" @?= Success (toStream "+3" 3) (BinOp Plus (Num 1) (Num 2))
---  runParser expr1 "1*2*3" @?= Success (toStream "" 5) (BinOp Mult (BinOp Mult (Num 1) (Num 2)) (Num 3))
---  runParser expr1 "1/2/3" @?= Success (toStream "" 5) (BinOp Div (Num 1) (BinOp Div (Num 2) (Num 3)))
---  runParser expr1 "1-2-3" @?= Success (toStream "" 5) (BinOp Minus (Num 1) (BinOp Minus (Num 2) (Num 3)))
---  runParser expr1 "1-2*3/4+5*6-7-8/9" @?= Success (toStream "" 17) (BinOp Mult (BinOp Mult (BinOp Minus (Num 1) (Num 2)) (BinOp Div (Num 3) (BinOp Plus (Num 4) (Num 5)))) (BinOp Minus (Num 6) (BinOp Minus (Num 7) (BinOp Div (Num 8) (Num 9)))))
---
---unit_expr2 :: Assertion
---unit_expr2 = do
---  runParser expr2 "13" @?= Success (toStream "" 2) (Num 13)
---  testFailure $ runParser expr2 "(((1)))"
---  runParser expr2 "1+2*3-4/5" @?= Success (toStream "" 9) (BinOp Div (BinOp Minus (BinOp Mult (BinOp Plus (Num 1) (Num 2)) (Num 3)) (Num 4)) (Num 5))
---  runParser expr2 "1+2+3" @?= Success (toStream "" 5) (BinOp Plus (BinOp Plus (Num 1) (Num 2)) (Num 3))
---  runParser expr2 "1*2*3" @?= Success (toStream "" 5) (BinOp Mult (BinOp Mult (Num 1) (Num 2)) (Num 3))
---  runParser expr2 "1/2/3" @?= Success (toStream "" 5) (BinOp Div (BinOp Div (Num 1) (Num 2)) (Num 3))
---  runParser expr2 "1-2-3" @?= Success (toStream "" 5) (BinOp Minus (BinOp Minus (Num 1) (Num 2)) (Num 3))
---  runParser expr2 "1-2*3/4+5*6-7-8/9" @?= Success (toStream "" 17) (BinOp Div (BinOp Minus (BinOp Minus (BinOp Mult (BinOp Plus (BinOp Div (BinOp Mult (BinOp Minus (Num 1) (Num 2)) (Num 3)) (Num 4)) (Num 5)) (Num 6)) (Num 7)) (Num 8)) (Num 9))
---
+expr1 :: Parser String String AST
+expr1 =
+  uberExpr [ (mult, Binary LeftAssoc)
+           , (minus <|> div', Binary RightAssoc)
+           , (sum', Binary NoAssoc)
+           ]
+           ((Num <$> parseNum) <|> symbol '(' *> expr1 <* symbol ')')
+           BinOp
+           UnaryOp
+
+expr2 :: Parser String String AST
+expr2 =
+  uberExpr [(mult <|> div' <|> minus <|> sum', Binary LeftAssoc)]
+           (Num <$> parseNum)
+           BinOp
+           UnaryOp
+
+--unit_plusexpr :: Assertion
+--unit_plusexpr = do
+  --runParser plusexpr "13" @?= Success "" (Num 13)
+  --runParser plusexpr "13+12" @?= Success "" (BinOp Plus (Num 13) (Num 12))
+  --runParser plusexpr "13+12+11" @?= Success "+11" (BinOp Plus (Num 13) (Num 12))
+  
+unit_expr1 :: Assertion
+unit_expr1 = do
+  runParser expr1 "13" @?= Success (toStream "" 2) (Num 13)
+  runParser expr1 "(((1)))" @?= Success (toStream "" 7) (Num 1)
+  runParser expr1 "1+2*3-4/5" @?= Success (toStream "" 9) (BinOp Mult (BinOp Plus (Num 1) (Num 2)) (BinOp Minus (Num 3) (BinOp Div (Num 4) (Num 5))))
+  runParser expr1 "1+2+3" @?= Success (toStream "+3" 3) (BinOp Plus (Num 1) (Num 2))
+  runParser expr1 "1*2*3" @?= Success (toStream "" 5) (BinOp Mult (BinOp Mult (Num 1) (Num 2)) (Num 3))
+  runParser expr1 "1/2/3" @?= Success (toStream "" 5) (BinOp Div (Num 1) (BinOp Div (Num 2) (Num 3)))
+  runParser expr1 "1-2-3" @?= Success (toStream "" 5) (BinOp Minus (Num 1) (BinOp Minus (Num 2) (Num 3)))
+  runParser expr1 "1-2*3/4+5*6-7-8/9" @?= Success (toStream "" 17) (BinOp Mult (BinOp Mult (BinOp Minus (Num 1) (Num 2)) (BinOp Div (Num 3) (BinOp Plus (Num 4) (Num 5)))) (BinOp Minus (Num 6) (BinOp Minus (Num 7) (BinOp Div (Num 8) (Num 9)))))
+
+unit_expr2 :: Assertion
+unit_expr2 = do
+  runParser expr2 "13" @?= Success (toStream "" 2) (Num 13)
+  testFailure $ runParser expr2 "(((1)))"
+  runParser expr2 "1+2*3-4/5" @?= Success (toStream "" 9) (BinOp Div (BinOp Minus (BinOp Mult (BinOp Plus (Num 1) (Num 2)) (Num 3)) (Num 4)) (Num 5))
+  runParser expr2 "1+2+3" @?= Success (toStream "" 5) (BinOp Plus (BinOp Plus (Num 1) (Num 2)) (Num 3))
+  runParser expr2 "1*2*3" @?= Success (toStream "" 5) (BinOp Mult (BinOp Mult (Num 1) (Num 2)) (Num 3))
+  runParser expr2 "1/2/3" @?= Success (toStream "" 5) (BinOp Div (BinOp Div (Num 1) (Num 2)) (Num 3))
+  runParser expr2 "1-2-3" @?= Success (toStream "" 5) (BinOp Minus (BinOp Minus (Num 1) (Num 2)) (Num 3))
+  runParser expr2 "1-2*3/4+5*6-7-8/9" @?= Success (toStream "" 17) (BinOp Div (BinOp Minus (BinOp Minus (BinOp Mult (BinOp Plus (BinOp Div (BinOp Mult (BinOp Minus (Num 1) (Num 2)) (Num 3)) (Num 4)) (Num 5)) (Num 6)) (Num 7)) (Num 8)) (Num 9))
