@@ -10,11 +10,7 @@ data Result error input result
   | Failure [ErrorMsg error]
   deriving (Eq)
 
-data Position = Position {line:: Int, position:: Int} deriving (Show, Eq)
-
-instance Ord Position where
-  (<=) (Position a b) (Position c d) | a == c    = b <= d
-                                     | otherwise = a <= c
+type Position = Int
 
 newtype Parser error input result
   = Parser { runParser' :: (InputStream input) -> Result error input result }
@@ -27,22 +23,17 @@ data ErrorMsg e = ErrorMsg { errors :: [e], pos :: Position }
 
 makeError e p = ErrorMsg [e] p
 
-initPosition :: Position
-initPosition = Position 0 0
+initPosition = 0
 
 runParser :: Parser error input result -> input -> Result error input result
 runParser parser input = runParser' parser (InputStream input initPosition)
 
-toStream :: a -> Int -> InputStream a
-toStream a x = InputStream a (Position 0 x)
+toStream :: a -> Position -> InputStream a
+toStream = InputStream
 
---incrPos :: InputStream a -> InputStream a
---incrPos (InputStream str pos) = InputStream str (pos + 1)
+incrPos :: InputStream a -> InputStream a
+incrPos (InputStream str pos) = InputStream str (pos + 1)
 
-incrPos :: Char -> InputStream String -> InputStream String
-incrPos '\n' (InputStream str (Position x y)) = InputStream str (Position (x + 1) 0) 
-incrPos '\t' (InputStream str (Position x y)) = InputStream str (Position x (y + 4))
-incrPos _    (InputStream str (Position x y)) = InputStream str (Position x (y + 1))
 instance Functor (Parser error input) where
   -- fmap :: (a -> b) -> Parser e i a -> Parser e i b
   fmap f (Parser runp) = Parser $ \input -> 
@@ -111,22 +102,21 @@ stringCompare (x:xs) = (:) <$> satisfy (== x) <*> stringCompare xs
  
 
 -- Успешно завершается, если последовательность содержит как минимум один элемент
-elem' :: Parser String String Char
+elem' :: (Show a) => Parser String [a] a
 elem' = satisfy (const True)
 
 elemSome' :: [String] -> Parser String String String
 elemSome' []     = return ""
 elemSome' (x:xs) = stringCompare x <|> elemSome' xs
-
 -- Проверяет, что первый элемент входной последовательности удовлетворяет предикату
-satisfy :: (Char -> Bool) -> Parser String String Char
+satisfy :: (a -> Bool) -> Parser String [a] a
 satisfy p = Parser $ \(InputStream input pos) ->
   case input of
-    (x:xs) | p x -> Success (incrPos x $ InputStream xs pos) x
+    (x:xs) | p x -> Success (incrPos $ InputStream xs pos) x
     input        -> Failure [makeError "Predicate failed" pos]
     
 
-satisfySome :: (Char -> Bool) -> Parser String String String
+satisfySome :: Show a => (a -> Bool) -> Parser String [a] [a]
 satisfySome p = some (satisfy p) 
 
 -- Успешно парсит пустую строку
@@ -145,9 +135,9 @@ word :: String -> Parser String String String
 word w = Parser $ \(InputStream input pos) ->
   let (pref, suff) = splitAt (length w) input in
   if pref == w
-  then Success (foldr (incrPos) (InputStream input pos) w) w
+  then Success (InputStream suff (pos + length w)) w
   else Failure [makeError ("Expected " ++ show w) pos]
--- char -> IS String -> IS String 
+
 instance Show (ErrorMsg String) where
   show (ErrorMsg e pos) = "at position " ++ show pos ++ ":\n" ++ (unlines $ map ('\t':) (nub e))
 

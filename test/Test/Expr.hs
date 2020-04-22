@@ -66,7 +66,7 @@ unit_parseIdent = do
     testFailure $ runParser parseIdent ""
 
 erasePosition :: Result e i a -> Result e i a
-erasePosition (Success str x) = Success (InputStream (stream str) (Position 0 0)) x
+erasePosition (Success str x) = Success (InputStream (stream str) (0)) x
 erasePosition x               = x
 
 unit_parseExpr :: Assertion
