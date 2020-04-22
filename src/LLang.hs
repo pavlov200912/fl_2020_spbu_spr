@@ -18,12 +18,15 @@ type Expr = AST
 
 type Var = String
 
-data Configuration = Conf { subst :: Subst, input :: [Int], output :: [Int] }
+data Configuration = Conf { subst :: Subst, input :: [Int], output :: [Int], defs :: Defs }
                    deriving (Show, Eq)
+
+type Defs = Map.Map String Function
 
 data Program = Program { functions :: [Function], main :: LAst } deriving Eq
 
-data Function = Function { name :: String, args :: [Var], funBody :: LAst } deriving Eq
+data Function = Function { name :: String, args :: [Var], funBody :: LAst, returnExpr :: Expr }
+              deriving (Eq)
 
 data LAst
   = If { cond :: Expr, thn :: LAst, els :: LAst }
@@ -32,7 +35,6 @@ data LAst
   | Read { var :: Var }
   | Write { expr :: Expr }
   | Seq { statements :: [LAst] }
-  | Return { expr :: Expr }
   deriving (Eq)
 
 
@@ -289,8 +291,8 @@ initialConf :: [Int] -> Configuration
 initialConf input = Conf Map.empty input []
 
 instance Show Function where
-  show (Function name args funBody) =
-    printf "%s(%s) =\n%s" name (intercalate ", " $ map show args) (unlines $ map (identation 1) $ lines $ show funBody)
+  show (Function name args funBody returnExpr) =
+    printf "%s(%s) =\n%s\n%s" name (intercalate ", " $ map show args) (unlines $ map (identation 1) $ lines $ show funBody) (identation 1 ("return " ++ show returnExpr))
 
 instance Show Program where
   show (Program defs main) =
@@ -309,7 +311,6 @@ instance Show LAst where
           Read var        -> makeIdent $ printf "read %s" var
           Write expr      -> makeIdent $ printf "write %s" (flatShowExpr expr)
           Seq stmts       -> intercalate "\n" $ map (go n) stmts
-          Return expr     -> makeIdent $ printf "return %s" (flatShowExpr expr)
       flatShowExpr (BinOp op l r) = printf "(%s %s %s)" (flatShowExpr l) (show op) (flatShowExpr r)
       flatShowExpr (UnaryOp op x) = printf "(%s %s)" (show op) (flatShowExpr x)
       flatShowExpr (Ident x) = x
@@ -320,6 +321,9 @@ instance Show LAst where
 ident = (+1)
 
 identation n = if n > 0 then printf "%s|_%s" (concat $ replicate (n - 1) "| ") else id
+
+
+
 eval (If cond thn els) conf@(Conf subst input output) = do
                                                 cond_res <- evalExpr subst cond
                                                 if (cond_res == 0) then
@@ -350,11 +354,3 @@ eval (Seq (x:xs)) conf = do
                          first <- eval x conf
                          eval (Seq xs) first  
 
---data LAst
---  = If { cond :: Expr, thn :: LAst, els :: LAst }
---  | While { cond :: AST, body :: LAst }
---  | Assign { var :: Var, expr :: Expr }
---  | Read { var :: Var }
---  | Write { expr :: Expr }
---  | Seq { statements :: [LAst] }
---  deriving (Show, Eq)
