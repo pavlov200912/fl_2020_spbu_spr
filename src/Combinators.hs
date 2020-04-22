@@ -35,7 +35,7 @@ toStream :: a -> Int -> InputStream a
 toStream a x = InputStream a (Position 0 x)
 
 incrPos :: Char -> InputStream String -> InputStream String
-incrPos '\n' (InputStream str (Position x y)) = InputStream str (Position (x + 1) (y))
+incrPos '\n' (InputStream str (Position x y)) = InputStream str (Position (x + 1) (0))
 incrPos '\t' (InputStream str (Position x y)) = InputStream str (Position (x) (y + 4))
 incrPos _    (InputStream str (Position x y)) = InputStream str (Position (x) (y + 1))
 

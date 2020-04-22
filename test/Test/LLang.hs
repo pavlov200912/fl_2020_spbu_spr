@@ -202,7 +202,7 @@ assertParser p str a = do
 
 assertPosParser :: (Eq a, Show a) => Parser String String a -> String -> a -> (Int, Int) -> Assertion 
 assertPosParser p str a (x, y) = do
-    runParser p str @?= Success (InputStream str (Position x y)) a
+    runParser p str @?= Success (InputStream "" (Position x y)) a
 
 isFailure (Failure _) = True
 isFailure  _          = False
@@ -383,3 +383,22 @@ unit_parseProg = do
                                   ))])
                                 ]) (Ident "ret"))  ] 
                 (Seq [Read "x", Write (FunctionCall "fib" [Ident "x"])]))
+
+
+unit_lines::Assertion
+unit_lines = do
+    assertPosParser parseLLang ("{\n" ++
+                               "help; me; please; \n" ++
+                               "please;\n" ++ 
+                               "}") (Seq []) (3, 1)
+    assertPosParser parseLLang ("{\n" ++
+                               "please;\n" ++ 
+                               "}") (Seq []) (2, 1)
+
+    assertPosParser parseLLang ("{\n" ++
+                               "please;\n" ++ 
+                               "help;\n" ++ 
+                               "me;\n" ++
+                               "print(auktyon~are~showing~their~new~albom~now~so~this~is~the~last~test~sorry);\n" ++
+                               "}") (Seq [Write (Ident "auktyon~are~showing~their~new~albom~now~so~this~is~the~last~test~sorry")]) 
+                               (5, 1)
