@@ -27,6 +27,36 @@ public interface GrammarListener extends ParseTreeListener {
 	 */
 	void exitMy_rule(GrammarParser.My_ruleContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link GrammarParser#end}.
+	 * @param ctx the parse tree
+	 */
+	void enterEnd(GrammarParser.EndContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link GrammarParser#end}.
+	 * @param ctx the parse tree
+	 */
+	void exitEnd(GrammarParser.EndContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link GrammarParser#new_line}.
+	 * @param ctx the parse tree
+	 */
+	void enterNew_line(GrammarParser.New_lineContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link GrammarParser#new_line}.
+	 * @param ctx the parse tree
+	 */
+	void exitNew_line(GrammarParser.New_lineContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link GrammarParser#eof}.
+	 * @param ctx the parse tree
+	 */
+	void enterEof(GrammarParser.EofContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link GrammarParser#eof}.
+	 * @param ctx the parse tree
+	 */
+	void exitEof(GrammarParser.EofContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link GrammarParser#start_nonterminal}.
 	 * @param ctx the parse tree
 	 */

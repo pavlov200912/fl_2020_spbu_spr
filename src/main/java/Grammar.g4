@@ -27,9 +27,14 @@ grammar Grammar;
 
 }
 
-my_rules : my_rules my_rule | my_rule;
+my_rules : my_rules my_rule| my_rule;
 
-my_rule : start_nonterminal ':=' (nonterminal | terminal | extra_terminal)+;
+my_rule : start_nonterminal ':=' (nonterminal | terminal | extra_terminal)+ end;
+
+end: new_line | eof;
+
+new_line: LINE;
+eof: EOF;
 
 start_nonterminal: nonterminal;
 nonterminal : NAME;
@@ -41,4 +46,5 @@ extra_symbol : EXTRA;
 NAME: '<'[a-zA-Z0-9]+'>';
 EXTRA: ('\' \'' | '\'<\'' | '\'>\'' | '\'\\n\'' | '\'\\t\'' | '\'=\'' | '\':\'' | '\'<eps>\'');
 ANY: ~[\n\t\r <>];
-WS: [\n\t\r ]+ -> skip;
+WS: [\t\r ]+ -> skip;
+LINE: [\n]+;

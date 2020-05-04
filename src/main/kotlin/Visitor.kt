@@ -22,9 +22,10 @@ class Visitor: GrammarBaseVisitor<AST>() {
                 is GrammarParser.NonterminalContext -> visitNonterminal(child)
                 is GrammarParser.TerminalContext -> visitTerminal(child)
                 is GrammarParser.Extra_terminalContext -> visitExtra_terminal(child)
+                is GrammarParser.EndContext -> null
                 else -> throw ParseException("panic: unknown AST type in Rule parsing")
             }
-            tail.add(token)
+            token?.let { tail.add(it) }
         }
         return Rule(head, tail)
     }
