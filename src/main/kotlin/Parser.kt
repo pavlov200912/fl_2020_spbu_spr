@@ -31,7 +31,7 @@ object MainParser {
                 ast.print()
                 println()
             } catch (e: ParseException) {
-                println("Parse error")
+                println("Parse error " + e.message)
             }
         }
     }

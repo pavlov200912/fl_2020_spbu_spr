@@ -85,6 +85,15 @@ public class GrammarParser extends Parser {
 	@Override
 	public ATN getATN() { return _ATN; }
 
+
+    @Override
+    public void notifyErrorListeners(Token offendingToken, String msg, RecognitionException ex) {
+
+        throw new ParseException("(line: " + offendingToken.getLine() +
+                ", pos: " + offendingToken.getCharPositionInLine()
+                + ") message: " + msg);
+    }
+
 	public GrammarParser(TokenStream input) {
 		super(input);
 		_interp = new ParserATNSimulator(this,_ATN,_decisionToDFA,_sharedContextCache);

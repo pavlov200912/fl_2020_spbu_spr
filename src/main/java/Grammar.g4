@@ -1,5 +1,32 @@
 grammar Grammar;
 
+// options/header/tokens
+
+@parser::members
+{
+    @Override
+    public void notifyErrorListeners(Token offendingToken, String msg, RecognitionException ex)
+    {
+
+     throw new ParseException("(line: " + offendingToken.getLine() +
+              ", pos: " + offendingToken.getCharPositionInLine()
+              + ") message: " + msg);
+    }
+}
+
+@lexer::members
+{
+    @Override
+    public void recover(RecognitionException ex)
+    {
+        if (ex == null) {
+            throw  new ParseException("Unknow error");
+        }
+        throw new ParseException(ex.getMessage() + ex.getCause());
+    }
+
+}
+
 my_rules : my_rules my_rule | my_rule;
 
 my_rule : start_nonterminal ':=' (nonterminal | terminal | extra_terminal)+;
