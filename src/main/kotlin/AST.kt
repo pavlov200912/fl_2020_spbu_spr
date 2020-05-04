@@ -10,7 +10,7 @@ data class Terminal(val symbol: String): AST()
 
 data class ExtraTerminal(val symbol: String): AST()
 
-
+// Print methods for AST
 fun AST.print() {
     when(this) {
         is Terminal -> print()
@@ -44,3 +44,5 @@ fun Terminal.print() {
 fun ExtraTerminal.print() {
     print("'$symbol'")
 }
+
+class ParseException(message:String): Exception(message)
