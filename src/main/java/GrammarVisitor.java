@@ -22,6 +22,24 @@ public interface GrammarVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitMy_rule(GrammarParser.My_ruleContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link GrammarParser#end}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitEnd(GrammarParser.EndContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link GrammarParser#new_line}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitNew_line(GrammarParser.New_lineContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link GrammarParser#eof}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitEof(GrammarParser.EofContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link GrammarParser#start_nonterminal}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
