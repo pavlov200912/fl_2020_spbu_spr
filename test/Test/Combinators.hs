@@ -1,10 +1,11 @@
 module Test.Combinators where
 
-import           Combinators         (Parser, Result (..), runParser,
+import           Combinators         (InputStream(..), Position(..), Parser, Result (..), runParser,
                                       runParser, satisfy, symbol,
                                       toStream)
 import           Control.Applicative
 import           Test.Tasty.HUnit    (Assertion, assertBool, (@?=))
+import           Data.Char
 
 testFailure = assertBool "" . isFailure
 
@@ -34,3 +35,15 @@ unit_some = do
     runParser (some $ symbol '1') "134" @?= Success (toStream "34" 1) "1"
     runParser (some $ symbol '1') "114" @?= Success (toStream "4" 2) "11"
     runParser (some $ symbol '1') "111" @?= Success (toStream "" 3)"111"
+
+
+unit_tabs :: Assertion
+unit_tabs = do
+    runParser (many (satisfy isDigit) <* symbol '\t') "123\t5" @?= Success (
+        InputStream "5" (Position 0 4)) "123"
+
+    runParser (many (satisfy isDigit) <* symbol '\t') "1\t5" @?= Success (
+        InputStream "5" (Position 0 4)) "1"
+
+    runParser (many (satisfy isDigit) <* symbol '\t') "12\t5" @?= Success (
+        InputStream "5" (Position 0 4)) "12"
