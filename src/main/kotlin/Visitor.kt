@@ -1,13 +1,13 @@
 class Visitor: GrammarBaseVisitor<AST>() {
     override fun visitMy_rules(ctx: GrammarParser.My_rulesContext?): AST {
         if (ctx == null) throw ParseException("panic: context is null")
-        if (ctx.childCount == 1) {
+        return if (ctx.childCount == 1) {
             val rule = visitMy_rule(ctx.getChild(0) as GrammarParser.My_ruleContext)
-            return Rules(rule, null)
+            Rules(rule, null)
         } else {
             val left = visitMy_rules(ctx.getChild(0) as GrammarParser.My_rulesContext)
             val right = visitMy_rule(ctx.getChild(1) as GrammarParser.My_ruleContext)
-            return Rules(left, right)
+            Rules(left, right)
         }
     }
 
