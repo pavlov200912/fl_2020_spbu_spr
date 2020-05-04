@@ -86,9 +86,9 @@ internal class GrammarParserTest {
         initFile(data = "<nonterm> := '<eps>'a'<eps>'")
         val ast = createAST()
         assertEquals(Rules(Rule(Nonterminal("<nonterm>"), listOf(
-            ExtraTerminal("<eps>"),
+            Epsilon(),
             Terminal("a"),
-            ExtraTerminal("<eps>"))),
+            Epsilon())),
             null), ast)
         clear()
     }

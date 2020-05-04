@@ -39,6 +39,8 @@ class Visitor: GrammarBaseVisitor<AST>() {
     }
 
     override fun visitExtra_terminal(ctx: GrammarParser.Extra_terminalContext?): AST {
+        if (ctx?.text == "\'<eps>\'")
+            return Epsilon()
         return ExtraTerminal(ctx?.text?.drop(1)?.dropLast(1) ?: "")
     }
 }
