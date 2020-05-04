@@ -1,0 +1,2 @@
+<hello> := ivan
+<hi> := '<'hello'>'' '':''='' 'ivan
