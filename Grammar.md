@@ -45,6 +45,7 @@ left := right
 <S'> := ab<N>
 <N> := c
 <N> := d
+<N> := '<eps>'
 ```
 
 ```
@@ -55,6 +56,8 @@ left := right
 Если эта документация вам кажется непонятной, 
 вот файл описывающий грамматику грамматик:
 ```
+grammar Grammar;
+
 my_rules : my_rules my_rule | my_rule;
 
 my_rule : start_nonterminal ':=' (nonterminal | terminal | extra_terminal)+;
@@ -67,9 +70,10 @@ symbol : ANY;
 extra_symbol : EXTRA;
 
 NAME: '<'[a-zA-Z0-9]+'>';
-EXTRA: ('\' \'' | '\'<\'' | '\'>\'' | '\'\\n\'' | '\'\\t\'' | '\'=\'' | '\':\'');
+EXTRA: ('\' \'' | '\'<\'' | '\'>\'' | '\'\\n\'' | '\'\\t\'' | '\'=\'' | '\':\'' | '\'<eps>\'');
 ANY: ~[\n\t\r <>];
 WS: [\n\t\r ]+ -> skip;
+
 ```
 
 Из него заметно, что можно использовать пробелы, табы и 

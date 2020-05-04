@@ -1,4 +1,3 @@
-// Define a grammar called Hello
 grammar Grammar;
 
 my_rules : my_rules my_rule | my_rule;
