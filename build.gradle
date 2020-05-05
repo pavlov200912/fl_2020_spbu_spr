@@ -7,7 +7,7 @@ apply plugin: 'antlr'
 apply plugin: 'idea'
 
 application {
-    mainClassName = 'GrammarParserCLI'
+    mainClassName = 'MainParser'
 }
 
 group 'parser'
