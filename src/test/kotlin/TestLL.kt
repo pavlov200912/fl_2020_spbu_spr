@@ -45,7 +45,7 @@ internal class LLTest {
         """.trimIndent())
         val ast = createAST()
         val rules = getRuleList(ast)
-        val first = buildFirst(rules, getTerms(rules))
+        val first = buildFirst(rules)
 
         assert(first.getOrDefault(Nonterminal("<S>"), mutableSetOf())
         == mutableSetOf(Terminal("a")))
@@ -67,5 +67,45 @@ internal class LLTest {
                                 Epsilon()))
         clear()
     }
+
+    @Test
+    fun testFollow() {
+        // Example from lectures:
+        initFile(data = """
+            <S> := a<S1>
+            <S1> := <A>b<B><S1>
+            <S1> := '<eps>'
+            <A> := a<A1>
+            <A> := '<eps>'
+            <A1> := b
+            <A1> := a
+            <B> := c
+            <B> := '<eps>'
+        """.trimIndent())
+        val ast = createAST()
+        val rules = getRuleList(ast)
+        val follow = buildFollow(rules)
+
+        assert(follow[Nonterminal("<S>")]
+        == mutableSetOf(Terminal("$")))
+
+        assert(follow[Nonterminal("<S1>")]
+                == mutableSetOf(Terminal("$")))
+
+        assert(follow[Nonterminal("<A>")]
+                == mutableSetOf(Terminal("b")))
+
+        assert(follow[Nonterminal("<A1>")]
+                == mutableSetOf(Terminal("b")))
+
+        assert(follow[Nonterminal("<B>")]
+                == mutableSetOf(Terminal("a"),
+                                Terminal("b"),
+                                Terminal("$")))
+
+        clear()
+    }
+
+
 
 }

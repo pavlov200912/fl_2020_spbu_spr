@@ -6,6 +6,7 @@ fun AST.print() {
         is Rules -> print()
         is Rule -> print()
         is ExtraTerminal -> print()
+        is Epsilon -> print()
     }
 }
 
@@ -34,7 +35,7 @@ fun ExtraTerminal.print() {
 }
 
 fun Epsilon.print() {
-    print("'<eps>'")
+    print("<eps>")
 }
 
 fun isRulesWithStarted(list: List<Rule>): Boolean {

@@ -31,8 +31,10 @@ object MainParser {
                 //ast.print()
                 println()
                 val listRules = getRuleList(ast)
-                println(listRules)
-                buildFirst(listRules, getTerms(listRules))
+                //println(listRules)
+                //buildFirst(listRules)
+                printFirst(buildFirst(listRules))
+                printFollow(buildFollow(listRules))
             } catch (e: ParseException) {
                 println("Parse error " + e.message)
             }
