@@ -187,48 +187,61 @@ fun buildTable(rules: List<Rule>): Map<Pair<Nonterminal, Term>, Rule> {
     return table
 }
 
-fun parseString(data: String, table: Map<Pair<Nonterminal, Term>, Rule>) {
+fun parseString(data: String, table: Map<Pair<Nonterminal, Term>, Rule>): NonterminalNode {
     val mainStack: Stack<AST> = Stack()
     // TODO: Check if there is starting rule
+    val formatData = data + "$"
     var pos = 0
+    var root: NonterminalNode? = null
     mainStack.add(Terminal("$"))
     mainStack.add(Nonterminal("<S>"))
     while (true) {
-        if (pos == data.length) {
-            if (mainStack.size == 1 && mainStack.peek() == Terminal("$"))
-                return
+        if (pos == formatData.length) {
+            if (mainStack.size == 0)
+                if (root == null) throw ParseTreeException("null tree at the end of parsing")
+                else return root
             else
                 throw ParseException("Parse error at pos: $pos, End of data, but stack isn't empty: ${mainStack}")
         }
         val peek = mainStack.peek()
         when(peek) {
-            is Epsilon -> mainStack.pop()
+            is Epsilon -> {
+                mainStack.pop()
+                root = root?.let { addTerminal(it, peek as Term) }
+            }
             is Terminal -> {
-                if (data[pos] == peek.symbol[0]) {
+                if (formatData[pos] == peek.symbol[0]) {
                     pos += 1
                     mainStack.pop()
+                    root = root?.let { addTerminal(it, peek as Term) }
                 } else {
-                    throw ParseException("Parse error at pos: $pos expected by data ${data[pos]} but got on stack ${peek.symbol}}")
+                    throw ParseException("Parse error at pos: $pos expected by data ${formatData[pos]} but got on stack ${peek.symbol}}")
                 }
             }
             is ExtraTerminal -> {
-                if (data[pos].toString() == peek.symbol.drop(1).dropLast(1)) {
+                if (formatData[pos].toString() == peek.symbol.drop(1).dropLast(1)) {
                     pos += 1
                     mainStack.pop()
+                    root = root?.let { addTerminal(it, peek as Term) }
                 } else {
-                    throw ParseException("Parse error at pos: $pos expected by data ${data[pos]} but got on stack ${peek.symbol}}")
+                    throw ParseException("Parse error at pos: $pos expected by data ${formatData[pos]} but got on stack ${peek.symbol}}")
                 }
             }
             is Nonterminal -> {
                 val listExtra = listOf<Char>('\n', '\t', ' ', '<', '>', ':', '=')
-                val rule = if (data[pos] in listExtra) {
-                    table[Pair(peek, ExtraTerminal(data[pos].toString()))]
+                val rule = if (formatData[pos] in listExtra) {
+                    table[Pair(peek, ExtraTerminal(formatData[pos].toString()))]
                 } else {
-                    table[Pair(peek, Terminal(data[pos].toString()))]
+                    table[Pair(peek, Terminal(formatData[pos].toString()))]
                 }
                 if (rule == null) {
-                    throw ParseException("Parse error at pos: $pos Can't find rule for (${peek.name}, ${data[pos]})")
+                    throw ParseException("Parse error at pos: $pos Can't find rule for (${peek.name}, ${formatData[pos]})")
                 } else {
+                    if (root != null) {
+                        root = addNonterminal(root, peek, rule.tail.size)
+                    } else {
+                        root = addNonterminal(root, peek, rule.tail.size + 1)
+                    }
                     mainStack.pop()
                     rule.tail.reversed().forEach {
                         mainStack.push(it)

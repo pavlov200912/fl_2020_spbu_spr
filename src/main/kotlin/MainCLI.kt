@@ -2,6 +2,7 @@ import com.jakewharton.fliptables.FlipTable
 import org.antlr.v4.runtime.CharStream
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
+import java.io.File
 import java.nio.file.NoSuchFileException
 
 
@@ -66,7 +67,37 @@ class MainCLI {
     }
 
     private fun parse() {
-        println("TODO(parser)")
+        if (grammarRules == null) {
+            println("Нет загруженной грамматики.")
+            return
+        }
+        try {
+            grammarTable = grammarRules?.let {  buildTable(it) }
+        } catch (e: TableException) {
+            println(e.message)
+            return
+        }
+        println("Введите путь к файлу с данными.")
+        val line = readLine() ?: "exit"
+        if (line == "exit")
+            return
+        val data = try {
+             File(line).readText()
+        } catch (e: NoSuchFileException) {
+            println("Файл не найден. Попробуйте снова или наберите exit")
+            parse()
+            return
+        }
+        try {
+            val tree = grammarTable?.let {
+                parseString(data, it)
+            }
+            println("Успех!")
+            println(tree?.str())
+        } catch (e: ParseException) {
+            println(e.message)
+            return
+        }
     }
 
     private fun unknown() {
