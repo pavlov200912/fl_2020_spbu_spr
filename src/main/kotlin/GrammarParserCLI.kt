@@ -3,7 +3,7 @@ import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import java.nio.file.NoSuchFileException
 
-object MainParser {
+object GrammarParserCLI {
     @JvmStatic
     fun main(args: Array<String>) {
         println("Hello! This is CLI for parsing files with grammar")
