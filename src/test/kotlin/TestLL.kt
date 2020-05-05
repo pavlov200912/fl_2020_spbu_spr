@@ -106,6 +106,82 @@ internal class LLTest {
         clear()
     }
 
+    @Test
+    fun testTable() {
+        // Example from lectures:
+        initFile(data = """
+            <S> := a<S1>
+            <S1> := <A>b<B><S1>
+            <S1> := '<eps>'
+            <A> := a<A1>
+            <A> := '<eps>'
+            <A1> := b
+            <A1> := a
+            <B> := c
+            <B> := '<eps>'
+        """.trimIndent())
+        val ast = createAST()
+        val rules = getRuleList(ast)
+        val table = buildTable(rules)
 
+        assertEquals(table.size,
+            12)
+
+        assertEquals(
+            table[Pair(Nonterminal("<S>"), Terminal("a"))]?.str(),
+            "<S> -> a<S1>"
+        )
+
+        assertEquals(
+            table[Pair(Nonterminal("<S1>"), Terminal("a"))]?.str(),
+            "<S1> -> <A>b<B><S1>"
+        )
+        assertEquals(
+            table[Pair(Nonterminal("<S1>"), Terminal("b"))]?.str(),
+            "<S1> -> <A>b<B><S1>"
+        )
+
+        assertEquals(
+            table[Pair(Nonterminal("<S1>"), Terminal("$"))]?.str(),
+            "<S1> -> <eps>"
+        )
+
+        assertEquals(
+            table[Pair(Nonterminal("<A>"), Terminal("a"))]?.str(),
+            "<A> -> a<A1>"
+        )
+        assertEquals(
+            table[Pair(Nonterminal("<A>"), Terminal("b"))]?.str(),
+            "<A> -> <eps>"
+        )
+
+        assertEquals(
+            table[Pair(Nonterminal("<A1>"), Terminal("b"))]?.str(),
+            "<A1> -> b"
+        )
+
+        assertEquals(
+            table[Pair(Nonterminal("<A1>"), Terminal("a"))]?.str(),
+            "<A1> -> a"
+        )
+        assertEquals(
+            table[Pair(Nonterminal("<B>"), Terminal("c"))]?.str(),
+            "<B> -> c"
+        )
+        assertEquals(
+            table[Pair(Nonterminal("<B>"), Terminal("a"))]?.str(),
+            "<B> -> <eps>"
+        )
+        assertEquals(
+            table[Pair(Nonterminal("<B>"), Terminal("b"))]?.str(),
+            "<B> -> <eps>"
+        )
+        assertEquals(
+            table[Pair(Nonterminal("<B>"), Terminal("$"))]?.str(),
+            "<B> -> <eps>"
+        )
+
+        clear()
+    }
 
 }

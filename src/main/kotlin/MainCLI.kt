@@ -131,7 +131,6 @@ class MainCLI {
                 println(e.message)
             }
         }
-        //println("TODO(table)")
     }
 
     private fun showGrammarFirst() {

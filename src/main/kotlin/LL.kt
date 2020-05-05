@@ -1,4 +1,5 @@
 import java.lang.RuntimeException
+import java.util.*
 
 fun buildFirst(rules: List<Rule>): Map<AST, MutableSet<Term>> {
     val first: MutableMap<AST, MutableSet<Term>> = mutableMapOf()
@@ -185,6 +186,59 @@ fun buildTable(rules: List<Rule>): Map<Pair<Nonterminal, Term>, Rule> {
     }
     return table
 }
+
+fun parseString(data: String, table: Map<Pair<Nonterminal, Term>, Rule>) {
+    val mainStack: Stack<AST> = Stack()
+    // TODO: Check if there is starting rule
+    var pos = 0
+    mainStack.add(Terminal("$"))
+    mainStack.add(Nonterminal("<S>"))
+    while (true) {
+        if (pos == data.length) {
+            if (mainStack.size == 1 && mainStack.peek() == Terminal("$"))
+                return
+            else
+                throw ParseException("Parse error at pos: $pos, End of data, but stack isn't empty: ${mainStack}")
+        }
+        val peek = mainStack.peek()
+        when(peek) {
+            is Epsilon -> mainStack.pop()
+            is Terminal -> {
+                if (data[pos] == peek.symbol[0]) {
+                    pos += 1
+                    mainStack.pop()
+                } else {
+                    throw ParseException("Parse error at pos: $pos expected by data ${data[pos]} but got on stack ${peek.symbol}}")
+                }
+            }
+            is ExtraTerminal -> {
+                if (data[pos].toString() == peek.symbol.drop(1).dropLast(1)) {
+                    pos += 1
+                    mainStack.pop()
+                } else {
+                    throw ParseException("Parse error at pos: $pos expected by data ${data[pos]} but got on stack ${peek.symbol}}")
+                }
+            }
+            is Nonterminal -> {
+                val listExtra = listOf<Char>('\n', '\t', ' ', '<', '>', ':', '=')
+                val rule = if (data[pos] in listExtra) {
+                    table[Pair(peek, ExtraTerminal(data[pos].toString()))]
+                } else {
+                    table[Pair(peek, Terminal(data[pos].toString()))]
+                }
+                if (rule == null) {
+                    throw ParseException("Parse error at pos: $pos Can't find rule for (${peek.name}, ${data[pos]})")
+                } else {
+                    mainStack.pop()
+                    rule.tail.reversed().forEach {
+                        mainStack.push(it)
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 data class TableException(val msg: String) : RuntimeException(msg) {
     companion object {
