@@ -6,6 +6,8 @@ import java.nio.file.NoSuchFileException
 object MainParser {
     @JvmStatic
     fun main(args: Array<String>) {
+        println("Hello! This is CLI for parsing files with grammar")
+        println("You can input path to your grammar file. To exit type: \'exit\'")
         while (true) {
             println("Input filename with grammar:")
             val line = readLine() ?: "exit"
@@ -28,6 +30,7 @@ object MainParser {
                 val parseTree = parser.my_rules();
                 val visitor = Visitor()
                 val ast = visitor.visit(parseTree)
+                println("Success! Your grammar is:")
                 ast.print()
                 println()
                 //val listRules = getRuleList(ast)
