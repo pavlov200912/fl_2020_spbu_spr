@@ -1,3 +1,4 @@
+import com.jakewharton.fliptables.FlipTable
 import org.antlr.v4.runtime.CharStream
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
@@ -10,6 +11,7 @@ class MainCLI {
     var grammarRules: List<Rule>? = null
     var grammarFirst: Map<AST, MutableSet<Term>>? = null
     var grammarFollow: Map<AST, MutableSet<Term>>? = null
+    var grammarTable:  Map<Pair<Nonterminal, Term>, Rule>? = null
     private fun loadGrammar() {
         val charStream: CharStream?
         println("Введите путь к файлу с грамматикой.")
@@ -48,6 +50,7 @@ class MainCLI {
         grammarFirst = null
         grammarAST = null
         grammarRules = null
+        grammarTable = null
     }
 
     private fun help() {
@@ -99,8 +102,36 @@ class MainCLI {
     }
 
     private fun showGrammarTable() {
-
-        println("TODO(table)")
+        if (grammarRules == null) {
+            println("Нет загруженной грамматики.")
+        } else {
+            try {
+                grammarTable = grammarRules?.let { buildTable(it) }
+                val headersSet = mutableSetOf<Term>()
+                val columnsSet = mutableSetOf<Nonterminal>()
+                grammarTable?.forEach {
+                    headersSet.add(it.key.second)
+                    columnsSet.add(it.key.first)
+                }
+                val headers = arrayOf("") + headersSet.toTypedArray().map{it.str()}
+                val tableAsSet = mutableSetOf<Array<String>>()
+                columnsSet.forEach {
+                    val list = mutableListOf<String>()
+                    list.add(it.name)
+                    headersSet.forEach {
+                        term ->
+                        list.add(grammarTable?.get(Pair(it, term))?.str() ?: "")
+                    }
+                    tableAsSet.add(list.toTypedArray())
+                }
+                val data = tableAsSet.toTypedArray()
+                println(FlipTable.of(headers, data))
+                //println(grammarTable)
+            } catch (e: TableException) {
+                println(e.message)
+            }
+        }
+        //println("TODO(table)")
     }
 
     private fun showGrammarFirst() {

@@ -10,10 +10,30 @@ fun AST.print() {
     }
 }
 
+fun AST.str(): String {
+    return when(this) {
+        is Terminal -> str()
+        is Nonterminal -> str()
+        is Rules -> str()
+        is Rule -> str()
+        is ExtraTerminal -> str()
+        is Epsilon -> str()
+    }
+}
+
 fun Rules.print() {
     left?.print()
     if (right != null) println()
     right?.print()
+}
+
+fun Rules.str(): String{
+    val ident = if (right != null) {
+        "\n"
+    } else {
+        ""
+    }
+    return left?.str().orEmpty() + ident + right?.str().orEmpty()
 }
 
 fun Rule.print() {
@@ -22,20 +42,40 @@ fun Rule.print() {
     tail.forEach { it.print() }
 }
 
+fun Rule.str(): String {
+    return head.str() + " -> " + tail.map{ it.str() }.foldRight("", {a, b -> a + b})
+}
+
 fun Nonterminal.print() {
     print(name)
+}
+
+fun Nonterminal.str(): String {
+    return name
 }
 
 fun Terminal.print() {
     print(symbol)
 }
 
+fun Terminal.str(): String {
+    return symbol
+}
+
 fun ExtraTerminal.print() {
     print("'$symbol'")
 }
 
+fun ExtraTerminal.str(): String {
+    return "'$symbol'"
+}
+
 fun Epsilon.print() {
     print("<eps>")
+}
+
+fun Epsilon.str(): String {
+    return "<eps>"
 }
 
 fun isRulesWithStarted(list: List<Rule>): Boolean {

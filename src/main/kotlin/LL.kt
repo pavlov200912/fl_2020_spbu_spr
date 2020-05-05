@@ -1,3 +1,4 @@
+import java.lang.RuntimeException
 
 fun buildFirst(rules: List<Rule>): Map<AST, MutableSet<Term>> {
     val first: MutableMap<AST, MutableSet<Term>> = mutableMapOf()
@@ -13,7 +14,7 @@ fun buildFirst(rules: List<Rule>): Map<AST, MutableSet<Term>> {
     var isChanging: Boolean = false
     do {
         isChanging = false
-        for(rule in rules) {
+        for (rule in rules) {
             val ruleFirst = mutableSetOf<Term>()
             var isEps = true
             for (item in rule.tail) {
@@ -21,9 +22,9 @@ fun buildFirst(rules: List<Rule>): Map<AST, MutableSet<Term>> {
                     ruleFirst.add(item)
                     isEps = false
                     break
-                } else if(item is Nonterminal){
+                } else if (item is Nonterminal) {
                     ruleFirst.addAll(first[item]?.minus(Epsilon()) ?: emptyList())
-                    if (first[item]?.any{it is Epsilon} != true) {
+                    if (first[item]?.any { it is Epsilon } != true) {
                         isEps = false
                         break
                     }
@@ -47,7 +48,7 @@ fun buildFollow(rules: List<Rule>): Map<AST, MutableSet<Term>> {
     // FOLLOW(S) = {$}
     follow[Nonterminal("<S>")] = mutableSetOf(Terminal("$") as Term)
 
-    rules.forEach {rule ->
+    rules.forEach { rule ->
         // A -> aBb => FOLLOW(B) U= FIRST(b) \ <eps>
         for (i in 0 until rule.tail.size - 1) {
             val item = rule.tail[i]
@@ -76,15 +77,14 @@ fun buildFollow(rules: List<Rule>): Map<AST, MutableSet<Term>> {
         }
 
         // A -> aBb, where eps \in First(b), then FOLLOW(B) U= FOLLOW(A)
-        rules.forEach {
-            rule ->
+        rules.forEach { rule ->
             for (i in 0 until rule.tail.size - 1) {
                 val item = rule.tail[i]
                 if (item is Nonterminal) {
                     val tail = rule.tail.drop(i + 1)
                     val previous = follow.getOrDefault(item, mutableSetOf())
                     if (tail.all { ast ->
-                            when(ast) {
+                            when (ast) {
                                 is Nonterminal -> first[ast]?.contains(Epsilon()) == true
                                 else -> false
                             }
@@ -97,14 +97,13 @@ fun buildFollow(rules: List<Rule>): Map<AST, MutableSet<Term>> {
                 }
             }
         }
-    } while(isChanging)
+    } while (isChanging)
     return follow
 }
 
 fun printFirst(first: Map<AST, MutableSet<Term>>) {
     println("First:")
-    first.filterKeys { it is Nonterminal }.
-        forEach { (ast, set) ->
+    first.filterKeys { it is Nonterminal }.forEach { (ast, set) ->
         print("First(")
         (ast as Nonterminal).print()
         print(") := {")
@@ -134,10 +133,70 @@ fun printFollow(follow: Map<AST, MutableSet<Term>>) {
     }
 }
 
-fun buildTable(list: List<Rule>) {
-    TODO()
+fun buildTable(rules: List<Rule>): Map<Pair<Nonterminal, Term>, Rule> {
+    val table: MutableMap<Pair<Nonterminal, Term>, Rule> = mutableMapOf()
+    val first = buildFirst(rules)
+    val follow = buildFollow(rules)
+    rules.forEach { rule ->
+        // A -> y where y != eps, in (A, a) put (A->y), where a \in FIRST(y)
+        val ruleFirst = mutableSetOf<Term>()
+        var isEps = true
+        for (item in rule.tail) {
+            if (item is Term && item !is Epsilon) {
+                ruleFirst.add(item)
+                isEps = false
+                break
+            } else if (item is Nonterminal) {
+                ruleFirst.addAll(first[item]?.minus(Epsilon()) ?: emptyList())
+                if (first[item]?.any { it is Epsilon } != true) {
+                    isEps = false
+                    break
+                }
+            }
+        }
+        ruleFirst.filter { it !is Epsilon }.forEach {
+            if (table.contains(Pair(rule.head, it))) {
+                throw TableException(
+                    TableException.formatMessage(
+                        rule.head,
+                        it,
+                        table[Pair(rule.head, it)],
+                        rule
+                    )
+                )
+            }
+            table[Pair(rule.head, it)] = rule
+        }
+        if (isEps) {
+            follow[rule.head]?.forEach {
+                if (table.contains(Pair(rule.head, it))) {
+                    throw TableException(
+                        TableException.formatMessage(
+                            rule.head,
+                            it,
+                            table[Pair(rule.head, it)],
+                            rule
+                        )
+                    )
+                }
+                table[Pair(rule.head, it)] = rule
+            }
+        }
+    }
+    return table
 }
 
+data class TableException(val msg: String) : RuntimeException(msg) {
+    companion object {
+        fun formatMessage(first: Nonterminal, second: Term, rule1: Rule?, rule2: Rule?): String {
+            return """
+                    Error with parsing table
+                    ($first, $second) already contains $rule1
+                    Tried to rewrite with $rule2
+                    """.trimIndent()
+        }
+    }
+}
 
 
 
