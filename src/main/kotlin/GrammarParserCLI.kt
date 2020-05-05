@@ -28,13 +28,13 @@ object MainParser {
                 val parseTree = parser.my_rules();
                 val visitor = Visitor()
                 val ast = visitor.visit(parseTree)
-                //ast.print()
+                ast.print()
                 println()
-                val listRules = getRuleList(ast)
+                //val listRules = getRuleList(ast)
                 //println(listRules)
                 //buildFirst(listRules)
-                printFirst(buildFirst(listRules))
-                printFollow(buildFollow(listRules))
+                //printFirst(buildFirst(listRules))
+                //printFollow(buildFollow(listRules))
             } catch (e: ParseException) {
                 println("Parse error " + e.message)
             }
