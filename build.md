@@ -12,3 +12,8 @@
 cd build/install/LL/bin/
 ./LL
 ```
+
+Для запуска тестов
+```
+./gradlew test
+```
