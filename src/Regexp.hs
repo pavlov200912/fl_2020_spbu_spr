@@ -8,13 +8,26 @@ data Regexp = Empty
             | Seq Regexp Regexp
             | Alt Regexp Regexp
             | Star Regexp
-            deriving (Eq, Ord)
+            deriving (Show, Eq, Ord)
 
 match :: Regexp -> String -> Bool
 match r s = nullable (foldl (flip derivative) r s)
 
 derivative :: Char -> Regexp -> Regexp
-derivative = error "derivative not implemented"
+derivative _ Empty = Empty
+derivative _ Epsilon = Empty
+derivative c (Char b) | b == c    = Epsilon
+                      | otherwise = Empty
+derivative c (Alt r1 r2) = Alt (derivative c r1) (derivative c r2)
+derivative c (Seq r1 r2) | nullable r1 = Alt (Seq (derivative c r1) r2) (derivative c r2)
+                         | otherwise   = Seq (derivative c r1) r2
+derivative c (Star r) = Seq (derivative c r) (Star r)
 
 nullable :: Regexp -> Bool
-nullable = error "nullable not implemented"
+nullable (Star _ )= True
+nullable Epsilon = True
+nullable (Seq r1 r2) = (nullable r1) && (nullable r2)
+nullable (Alt r1 r2) = (nullable r1) || (nullable r2)
+nullable (Char _) = False
+nullable Empty = False
+
