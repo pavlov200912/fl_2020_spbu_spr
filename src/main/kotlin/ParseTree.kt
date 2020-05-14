@@ -7,7 +7,7 @@ class NonterminalNode(val parent: NonterminalNode?,
                            val children: MutableList<ParseTree>,
                            val childCount: Int): ParseTree
 
-class TerminalNode(val parent: NonterminalNode, val label: String): ParseTree
+class MyTerminalNode(val parent: NonterminalNode, val label: String): ParseTree
 
 fun addTerminal(root: NonterminalNode, terminal: Term): NonterminalNode {
     if (root.children.size == root.childCount) {
@@ -18,7 +18,7 @@ fun addTerminal(root: NonterminalNode, terminal: Term): NonterminalNode {
             return addTerminal(root.parent, terminal)
         }
     } else {
-        val newNode: TerminalNode = TerminalNode(parent = root, label = (terminal as AST).str())
+        val newNode: MyTerminalNode = MyTerminalNode(parent = root, label = (terminal as AST).str())
         root.children.add(newNode)
         return root
     }
@@ -59,7 +59,7 @@ private fun NonterminalNode.print(buffer: StringBuilder, prefix: String, childre
     while (it.hasNext()) {
         val next = it.next()
         when (next) {
-            is TerminalNode -> {
+            is MyTerminalNode -> {
                 if (it.hasNext()) {
                     next.print(buffer, "$childrenPrefix├── ", "$childrenPrefix│   ")
                 } else {
@@ -78,7 +78,7 @@ private fun NonterminalNode.print(buffer: StringBuilder, prefix: String, childre
 }
 
 
-private fun TerminalNode.print(buffer: StringBuilder, prefix: String, childrenPrefix: String) {
+private fun MyTerminalNode.print(buffer: StringBuilder, prefix: String, childrenPrefix: String) {
     buffer.append(prefix)
     buffer.append(this.label)
     buffer.append('\n')
