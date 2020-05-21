@@ -108,10 +108,14 @@ fun printFirst(first: Map<AST, MutableSet<Term>>) {
         print("First(")
         (ast as Nonterminal).print()
         print(") := {")
-        set.first().print()
-        set.drop(1).forEach {
-            print(", ")
-            it.print()
+        if (set.isEmpty()) {
+            print("")
+        } else {
+            set.first().print()
+            set.drop(1).forEach {
+                print(", ")
+                it.print()
+            }
         }
         print("}")
         println()
@@ -124,10 +128,14 @@ fun printFollow(follow: Map<AST, MutableSet<Term>>) {
         print("Follow(")
         (ast as Nonterminal).print()
         print(") := {")
-        set.first().print()
-        set.drop(1).forEach {
-            print(", ")
-            it.print()
+        if (set.isEmpty()) {
+            print("")
+        } else {
+            set.first().print()
+            set.drop(1).forEach {
+                print(", ")
+                it.print()
+            }
         }
         print("}")
         println()
