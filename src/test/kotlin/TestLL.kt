@@ -1,5 +1,6 @@
 
 import junit.framework.Assert.assertEquals
+import junit.framework.Assert.assertNull
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import org.junit.Test
@@ -69,6 +70,32 @@ internal class LLTest {
     }
 
     @Test
+    fun testFirst2() {
+        initFile(data = """
+            <S> := <Y> z
+            <S> := a
+            <Y> := b <Z>
+            <Y> := '<eps>'
+            <Z> := '<eps>'
+        """.trimIndent())
+        val ast = createAST()
+        val rules = getRuleList(ast)
+        val first = buildFirst(rules)
+
+        assert(first.getOrDefault(Nonterminal("<S>"), mutableSetOf())
+                == mutableSetOf(Terminal("a"), Terminal("b"), Terminal("z")))
+
+        assert(first.getOrDefault(Nonterminal("<Y>"), mutableSetOf())
+                == mutableSetOf(Terminal("b"),
+            Epsilon()))
+
+        assert(first.getOrDefault(Nonterminal("<Z>"), mutableSetOf())
+                == mutableSetOf(Epsilon()))
+
+        clear()
+    }
+
+    @Test
     fun testFollow() {
         // Example from lectures:
         initFile(data = """
@@ -102,6 +129,31 @@ internal class LLTest {
                 == mutableSetOf(Terminal("a"),
                                 Terminal("b"),
                                 Terminal("$")))
+
+        clear()
+    }
+
+    @Test
+    fun testFollow2() {
+        initFile(data = """
+            <S> := <Y> z
+            <S> := a
+            <Y> := b <Z>
+            <Y> := '<eps>'
+            <Z> := '<eps>'
+        """.trimIndent())
+        val ast = createAST()
+        val rules = getRuleList(ast)
+        val follow = buildFollow(rules)
+
+        assert(follow[Nonterminal("<S>")]
+                == mutableSetOf(Terminal("$")))
+
+        assert(follow[Nonterminal("<Y>")]
+                == mutableSetOf(Terminal("z")))
+
+        assert(follow[Nonterminal("<Z>")]
+                == mutableSetOf(Terminal("z")))
 
         clear()
     }
@@ -183,5 +235,92 @@ internal class LLTest {
 
         clear()
     }
+
+    @Test
+    fun testTable2() {
+        // Example from lectures:
+        initFile(data = """
+            <S> := <Y> z
+            <S> := a
+            <Y> := b <Z>
+            <Y> := '<eps>'
+            <Z> := '<eps>'
+        """.trimIndent())
+        val ast = createAST()
+        val rules = getRuleList(ast)
+        val table = buildTable(rules)
+
+        assertEquals(table.size,
+            6)
+
+        assertEquals(
+            table[Pair(Nonterminal("<S>"), Terminal("a"))]?.str(),
+            "<S> -> a"
+        )
+
+        assertEquals(
+            table[Pair(Nonterminal("<S>"), Terminal("b"))]?.str(),
+            "<S> -> <Y>z"
+        )
+
+        assertEquals(
+            table[Pair(Nonterminal("<S>"), Terminal("z"))]?.str(),
+            "<S> -> <Y>z"
+        )
+
+        assertEquals(
+            table[Pair(Nonterminal("<Y>"), Terminal("b"))]?.str(),
+            "<Y> -> b<Z>"
+        )
+
+        assertEquals(
+            table[Pair(Nonterminal("<Y>"), Terminal("z"))]?.str(),
+            "<Y> -> <eps>"
+        )
+
+        assertEquals(
+            table[Pair(Nonterminal("<Z>"), Terminal("z"))]?.str(),
+            "<Z> -> <eps>"
+        )
+
+
+        clear()
+    }
+
+    @Test
+    fun testParse() {
+        // Example from lectures:
+        initFile(data = """
+            <S> := a<S>b<S>
+            <S> := '<eps>'
+        """.trimIndent())
+        val ast = createAST()
+        val rules = getRuleList(ast)
+        val table = buildTable(rules)
+        val data = "abab"
+        val result = parseString(data, table)
+        assertEquals(result.label ,"<S>")
+        assertEquals(result.childCount, 5)
+        assertNull(result.parent)
+
+        assert(result.children[0] is MyTerminalNode)
+        assertEquals((result.children[0] as MyTerminalNode).label , "a")
+
+        assert(result.children[1] is NonterminalNode)
+        assertEquals((result.children[1] as NonterminalNode).label , "<S>")
+        assertEquals((result.children[1] as NonterminalNode).childCount , 1)
+
+        assert(result.children[2] is MyTerminalNode)
+        assertEquals((result.children[2] as MyTerminalNode).label , "b")
+
+        assert(result.children[3] is NonterminalNode)
+        assertEquals((result.children[3] as NonterminalNode).label , "<S>")
+        assertEquals((result.children[3] as NonterminalNode).childCount , 4)
+
+        assert(result.children[4] is MyTerminalNode)
+        assertEquals((result.children[4] as MyTerminalNode).label , "$")
+
+    }
+
 
 }
